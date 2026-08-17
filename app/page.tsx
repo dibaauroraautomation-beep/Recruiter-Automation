@@ -1,177 +1,200 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useUser } from "@/app/contexts/UserContext";
 
 type Lang = "en" | "de";
 
 const t: Record<Lang, Record<string, string>> = {
   en: {
-    badge: "AI-Powered Career Tools",
-    hero_title_1: "Optimize Your Resume,",
-    hero_title_2: "Ace Your Interview",
-    hero_desc: "Smart tools to analyze your resume, generate cover letters, and practice interviews \u2014 all powered by AI.",
+    badge: "Hire Top Talent",
+    hero_title_1: "Post a Job,",
+    hero_title_2: "Hire the Best",
+    hero_desc: "Create a job posting in minutes and get matched with qualified candidates \u2014 powered by AI.",
     login: "Login",
-    dashboard: "Dashboard",
     about: "About",
-    section_title: "Everything you need",
-    section_desc: "Powerful tools to help you land your dream job",
-    feature_1_title: "ATS Resume Analysis",
-    feature_1_desc: "Upload your resume and get instant ATS compatibility scores with actionable improvement suggestions.",
-    feature_2_title: "Cover Letter Generator",
-    feature_2_desc: "Generate tailored, professional cover letters matched to any job description in seconds.",
-    feature_3_title: "Interview Prep AI",
-    feature_3_desc: "Practice with AI-powered mock interviews tailored to your resume and target job description.",
-    feature_4_title: "Job Tracker",
-    feature_4_desc: "Track your job applications, monitor resume performance, and manage your career progress.",
+    get_started: "Post a Job",
+    learn_more: "Learn More",
+    feat_1_title: "AI Candidate Matching",
+    feat_1_desc: "Our AI analyzes every applicant and matches the most qualified candidates to your role instantly.",
+    feat_2_title: "Smart ATS Screening",
+    feat_2_desc: "Automatically score resumes against your job description and surface the top talent first.",
+    feat_3_title: "Automated Interviews",
+    feat_3_desc: "Let AI conduct and evaluate structured interviews, saving you hours of manual screening.",
+    feat_4_title: "Real-time Analytics",
+    feat_4_desc: "Track applicants, shortlist status, and hiring funnels with live dashboards.",
+    cta_title: "Ready to hire your next star?",
+    cta_desc: "Post your first job today and let AI do the heavy lifting.",
+    cta_btn: "Create a Job Posting",
     footer_copy: "\u00A9 2026 CareerAI. All rights reserved.",
   },
   de: {
-    badge: "KI-gest\u00fctzte Karriere-Tools",
-    hero_title_1: "Optimieren Sie Ihren Lebenslauf,",
-    hero_title_2: "Bestehen Sie Ihr Vorstellungsgespr\u00e4ch",
-    hero_desc: "Intelligente Tools zur Analyse Ihres Lebenslaufs, zur Erstellung von Anschreiben und zur Vorbereitung auf Vorstellungsgespr\u00e4che \u2014 alle von KI unterst\u00fctzt.",
+    badge: "Top-Talente einstellen",
+    hero_title_1: "Stelle eine Stelle ein,",
+    hero_title_2: "Stelle die Besten ein",
+    hero_desc: "Erstellen Sie in Minuten eine Stellenausschreibung und finden Sie qualifizierte Kandidaten \u2014 von KI unterst\u00fctzt.",
     login: "Anmelden",
-    dashboard: "Dashboard",
     about: "\u00DCber uns",
-    section_title: "Alles was Sie brauchen",
-    section_desc: "Leistungsstarke Tools, die Ihnen helfen, Ihren Traumjob zu bekommen",
-    feature_1_title: "ATS-Lebenslaufanalyse",
-    feature_1_desc: "Laden Sie Ihren Lebenslauf hoch und erhalten Sie sofortige ATS-Kompatibilit\u00e4tswerte mit umsetzbaren Verbesserungsvorschl\u00e4gen.",
-    feature_2_title: "Anschreiben-Generator",
-    feature_2_desc: "Erstellen Sie ma\u00dfgeschneiderte, professionelle Anschreiben, die auf jede Stellenbeschreibung abgestimmt sind.",
-    feature_3_title: "Interview-Vorbereitung KI",
-    feature_3_desc: "\u00DCben Sie mit KI-gest\u00fctzten Vorstellungsgespr\u00e4chen, die auf Ihren Lebenslauf zugeschnitten sind.",
-    feature_4_title: "Job-Tracker",
-    feature_4_desc: "Verfolgen Sie Ihre Bewerbungen, \u00fcberwachen Sie die Leistung Ihres Lebenslaufs und verwalten Sie Ihren Karrierefortschritt.",
+    get_started: "Stelle einstellen",
+    learn_more: "Mehr erfahren",
+    feat_1_title: "KI-Kandidatenabgleich",
+    feat_1_desc: "Unsere KI analysiert jeden Bewerber und bringt die qualifiziertesten Kandidaten sofort mit Ihrer Stelle zusammen.",
+    feat_2_title: "Intelligente ATS-Pr\u00fcfung",
+    feat_2_desc: "Bewerten Sie Lebensl\u00e4ufe automatisch anhand Ihrer Stellenbeschreibung und entdecken Sie zuerst die besten Talente.",
+    feat_3_title: "Automatisierte Gespr\u00e4che",
+    feat_3_desc: "Lassen Sie KI strukturierte Gespr\u00e4che f\u00fchren und bewerten \u2014 sparen Sie Stunden manueller Pr\u00fcfung.",
+    feat_4_title: "Analysen in Echtzeit",
+    feat_4_desc: "Verfolgen Sie Bewerber, Vorauswahlstatus und Einstellungstrichter mit Live-Dashboards.",
+    cta_title: "Bereit, Ihren n\u00e4chsten Star einzustellen?",
+    cta_desc: "Ver\u00f6ffentlichen Sie noch heute Ihre erste Stelle und lassen Sie KI die schwere Arbeit \u00fcbernehmen.",
+    cta_btn: "Stellenausschreibung erstellen",
     footer_copy: "\u00A9 2026 CareerAI. Alle Rechte vorbehalten.",
   },
 };
 
 const features = [
-  { titleKey: "feature_1_title", descKey: "feature_1_desc", icon: <svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg> },
-  { titleKey: "feature_2_title", descKey: "feature_2_desc", icon: <svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg> },
-  { titleKey: "feature_3_title", descKey: "feature_3_desc", icon: <svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 0 0 1.5-.189m-1.5.189a6.01 6.01 0 0 1-1.5-.189m3.75 7.478a12.06 12.06 0 0 1-4.5 0m3.75 2.383a14.406 14.406 0 0 1-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 1 0-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" /></svg> },
-  { titleKey: "feature_4_title", descKey: "feature_4_desc", icon: <svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" /></svg> },
+  {
+    titleKey: "feat_1_title",
+    descKey: "feat_1_desc",
+    icon: <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17.982 18.725A7.488 7.488 0 0 0 12 15.75a7.488 7.488 0 0 0-5.982 2.975m11.963 0a9 9 0 1 0-11.963 0m11.963 0A8.966 8.966 0 0 1 12 21a8.966 8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>,
+  },
+  {
+    titleKey: "feat_2_title",
+    descKey: "feat_2_desc",
+    icon: <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>,
+  },
+  {
+    titleKey: "feat_3_title",
+    descKey: "feat_3_desc",
+    icon: <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.75V12m0 0v5.25m0-5.25H6.75m5.25 0h5.25M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z" /></svg>,
+  },
+  {
+    titleKey: "feat_4_title",
+    descKey: "feat_4_desc",
+    icon: <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" /></svg>,
+  },
 ];
-
-
-
-
 
 export default function Home() {
   const [lang, setLang] = useState<Lang>("en");
-  const cardsRef = useRef<HTMLDivElement>(null);
-  const router = useRouter();
-  const { user, setUser } = useUser();
-  console.log("user.WebHook_Ur:", user.WebHook_Url);
-
-  const selectUser = (userName: { name: string; WebHook_Url: Record<string, string> }) => {
-    localStorage.removeItem("userEmail");
-    setUser({ ...user, name: userName.name, WebHook_Url: userName.WebHook_Url });
-    router.push("/pages/Dashboard");
-  };
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add("opacity-100", "translate-y-0");
-            entry.target.classList.remove("opacity-0", "translate-y-6");
-          }
-        });
-      },
-      { threshold: 0.15 }
-    );
-
-    const cards = cardsRef.current?.querySelectorAll(".feature-card");
-    cards?.forEach((card, i) => {
-      (card as HTMLElement).style.transitionDelay = `${i * 120}ms`;
-      observer.observe(card);
-    });
-
-    return () => observer.disconnect();
-  }, []);
 
   return (
-    <div className="min-h-screen bg-white">
-      <header className="border-b border-slate-100">
-        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+    <div className="min-h-screen bg-[#fdf9f3] text-slate-900 antialiased">
+      <header className="sticky top-0 z-20 bg-[#fdf9f3]/80 backdrop-blur-md border-b border-amber-900/10">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-600 to-orange-800 flex items-center justify-center shadow-sm">
               <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 2 3 7v6c0 4.5 3.8 8.3 9 9 5.2-.7 9-4.5 9-9V7l-9-5Zm0 4.2 5 2.8v4c0 3-2.2 5.6-5 6.1-2.8-.5-5-3.1-5-6.1V9l5-2.8Z" />
               </svg>
             </div>
-            <span className="text-lg font-bold text-slate-800">CareerAI</span>
+            <div className="leading-tight">
+              <span className="block text-lg font-bold text-slate-900">CareerAI</span>
+              <span className="block text-[10px] font-medium text-amber-800">{t[lang].badge}</span>
+            </div>
           </div>
-          <button
-            onClick={() => setLang(lang === "en" ? "de" : "en")}
-            className="flex items-center text-xs font-semibold rounded-lg border border-blue-500 bg-white hover:bg-blue-50 transition shrink-0 overflow-hidden"
-          >
-            <span className={"px-2.5 py-1 border-r border-blue-200 " + (lang === "en" ? "bg-blue-500 text-white" : "text-blue-500")}>EN</span>
-            <span className={"px-2.5 py-1 " + (lang === "de" ? "bg-blue-500 text-white" : "text-blue-500")}>DE</span>
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setLang(lang === "en" ? "de" : "en")}
+              className="flex items-center text-xs font-semibold rounded-lg border border-amber-700 bg-white hover:bg-amber-50 transition shrink-0 overflow-hidden"
+            >
+              <span className={"px-2.5 py-1.5 border-r border-amber-200 " + (lang === "en" ? "bg-amber-700 text-white" : "text-amber-700")}>EN</span>
+              <span className={"px-2.5 py-1.5 " + (lang === "de" ? "bg-amber-700 text-white" : "text-amber-700")}>DE</span>
+            </button>
+            <span className="hidden sm:block w-px h-6 bg-slate-200" />
+            <Link
+              href="pages/login"
+              className="hidden sm:inline-flex px-5 py-2 text-sm font-semibold text-white bg-gradient-to-r from-amber-700 to-orange-800 rounded-xl hover:from-amber-800 hover:to-orange-900 transition shadow-sm"
+            >
+              {t[lang].login}
+            </Link>
+            <Link
+              href="pages/about"
+              className="hidden sm:inline-flex px-5 py-2 text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition"
+            >
+              {t[lang].about}
+            </Link>
+          </div>
         </div>
       </header>
 
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-20 pb-16 text-center">
-        <div className="inline-block px-3 py-1 mb-6 text-xs font-medium text-indigo-600 bg-indigo-50 rounded-full border border-indigo-100">
-          {t[lang].badge}
-        </div>
-        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-slate-900 leading-tight max-w-3xl mx-auto">
-          {t[lang].hero_title_1}<br />
-          <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">{t[lang].hero_title_2}</span>
-        </h1>
-        <p className="mt-4 text-base sm:text-lg text-slate-500 max-w-xl mx-auto leading-relaxed">
-          {t[lang].hero_desc}
-        </p>
-        
-        <div className="flex items-center justify-center gap-4 mt-8">
-          <Link
-            href="pages/login"
-            className="px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-blue-600 rounded-xl hover:from-indigo-700 hover:to-blue-700 transition shadow-sm"
-          >
-            {t[lang].login}
-          </Link>
-          <Link
-            href="pages/about"
-            className="px-6 py-3 text-sm font-semibold text-slate-600 hover:text-slate-800 transition"
-          >
-            {t[lang].about}
-          </Link>
-        </div>
-      </section>
-
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-24">
-        <div className="text-center mb-12">
-          <h2 className="text-2xl sm:text-3xl font-bold text-slate-800">{t[lang].section_title}</h2>
-          <p className="text-sm text-slate-400 mt-2">{t[lang].section_desc}</p>
-        </div>
-        <div ref={cardsRef} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {features.map((f, i) => (
-            <div
-              key={i}
-              className="feature-card opacity-0 translate-y-6 transition-all duration-500 ease-out p-6 max-sm:p-4 rounded-2xl border border-slate-200 bg-white hover:border-indigo-200 hover:shadow-sm hover:-translate-y-1"
-            >
-              <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4">
-                {f.icon}
-              </div>
-              <h3 className="text-base font-semibold text-slate-800 mb-1.5">{t[lang][f.titleKey]}</h3>
-              <p className="text-sm text-slate-500 leading-relaxed">{t[lang][f.descKey]}</p>
+      <main>
+        <section className="relative overflow-hidden">
+          <div className="absolute inset-0 bg-[radial-gradient(60%_50%_at_50%_0%,rgba(217,119,6,0.12),transparent_70%)]" />
+          <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-20 pb-16 text-center">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 mb-7 text-xs font-semibold text-amber-900 bg-amber-100/70 rounded-full border border-amber-300/60 shadow-sm">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7Z" />
+              </svg>
+              {t[lang].badge}
             </div>
-          ))}
-        </div>
-      </section>
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-slate-900 leading-tight max-w-3xl mx-auto tracking-tight">
+              {t[lang].hero_title_1}<br />
+              <span className="bg-gradient-to-r from-amber-600 via-orange-700 to-orange-800 bg-clip-text text-transparent">{t[lang].hero_title_2}</span>
+            </h1>
+            <p className="mt-5 text-base sm:text-lg text-slate-600 max-w-xl mx-auto leading-relaxed">
+              {t[lang].hero_desc}
+            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-9">
+              <Link
+                href="pages/job-postings"
+                className="px-7 py-3 text-sm font-semibold text-white bg-gradient-to-r from-amber-700 to-orange-800 rounded-xl hover:from-amber-800 hover:to-orange-900 transition shadow-lg shadow-amber-900/20"
+              >
+                {t[lang].get_started}
+              </Link>
+              <Link
+                href="pages/about"
+                className="px-7 py-3 text-sm font-semibold text-slate-700 border border-slate-300 bg-white rounded-xl hover:border-amber-700 hover:text-amber-800 transition"
+              >
+                {t[lang].learn_more}
+              </Link>
+            </div>
+          </div>
+        </section>
 
-      <footer className="border-t border-slate-100">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
-          <span className="text-xs text-slate-400">{t[lang].footer_copy}</span>
+        <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-20">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {features.map((f, i) => (
+              <div
+                key={i}
+                className="group p-6 rounded-2xl border border-amber-900/10 bg-white shadow-sm hover:shadow-lg hover:border-amber-700/30 hover:-translate-y-1 transition-all duration-300"
+              >
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-100 to-orange-100 text-amber-800 flex items-center justify-center mb-4 group-hover:from-amber-700 group-hover:to-orange-800 group-hover:text-white transition-colors duration-300">
+                  {f.icon}
+                </div>
+                <h3 className="text-base font-bold text-slate-800 mb-1.5">{t[lang][f.titleKey]}</h3>
+                <p className="text-sm text-slate-500 leading-relaxed">{t[lang][f.descKey]}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-24">
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#2a1607] via-[#3d1f0c] to-[#5a2f14] px-6 sm:px-12 py-14 text-center shadow-xl">
+            <div className="absolute inset-0 bg-[radial-gradient(50%_60%_at_50%_0%,rgba(251,146,60,0.25),transparent_70%)]" />
+            <div className="relative">
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white leading-tight">
+                {t[lang].cta_title}
+              </h2>
+              <p className="mt-3 text-sm sm:text-base text-amber-100/80 max-w-md mx-auto leading-relaxed">
+                {t[lang].cta_desc}
+              </p>
+              <Link
+                href="pages/job-postings"
+                className="inline-flex mt-8 px-8 py-3.5 text-sm font-semibold text-amber-950 bg-gradient-to-r from-amber-400 to-orange-400 rounded-xl hover:from-amber-500 hover:to-orange-500 transition shadow-lg shadow-amber-950/30"
+              >
+                {t[lang].cta_btn}
+              </Link>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer className="border-t border-amber-900/10">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+          <span className="text-xs text-slate-500">{t[lang].footer_copy}</span>
           <div className="flex items-center gap-4">
-            <Link href="pages/about" className="text-xs text-slate-400 hover:text-slate-600 transition">{t[lang].about}</Link>
-            <Link href="pages/login" className="text-xs text-slate-400 hover:text-slate-600 transition">{t[lang].login}</Link>
+            <Link href="pages/about" className="text-xs text-slate-500 hover:text-amber-800 transition">{t[lang].about}</Link>
+            <Link href="pages/login" className="text-xs text-slate-500 hover:text-amber-800 transition">{t[lang].login}</Link>
           </div>
         </div>
       </footer>

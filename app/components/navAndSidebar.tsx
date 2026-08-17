@@ -3,6 +3,10 @@
 import { useState, useEffect, ReactNode } from "react";
 import Link from "next/link";
 import { useLanguage } from "../contexts/LanguageContext";
+import { PiSuitcaseSimpleFill, PiRankingLight } from "react-icons/pi";
+import { FaUserCheck, FaClipboardCheck, FaSlidersH } from "react-icons/fa";
+import { FaX } from "react-icons/fa6";
+import { FaBars, FaCaretDown, FaSignOutAlt } from "react-icons/fa";
 
 interface pageInfoProps {
   pageInfo: [title: string, titleDescription: string, heighLightLink: string];
@@ -20,72 +24,62 @@ interface pageInfoProps {
 interface PageItem {
   name: string;
   path: string;
-}
-
-function separatePageData(sourceList: PageItem[]) {
-  const n1: string[] = [];
-  const n2: string[] = [];
-
-  sourceList.forEach((item) => {
-    n1.push(item.name);
-    n2.push(item.path);
-  });
-
-  return { n1, n2 };
+  icon: ReactNode;
 }
 
 const pathVar: PageItem[] = [
-  { name: "Dashboard", path: "Dashboard" },
-  { name: "Resume Generator", path: "Resume_Generator" },
-  { name: "Cover Letter Generator", path: "coverLetterGenerator" },
-  { name: "Interview Prep AI", path: "Interview_Prep_AI" },
-  { name: "Applications Status", path: "ApplicationsStatus" },
-  { name: "Settings", path: "setting" },
+  { name: "Job Postings", path: "job-postings", icon: <PiSuitcaseSimpleFill className="w-4 h-4" /> },
+  { name: "Candidate Scoring and Ranking", path: "candidate-scoring", icon: <PiRankingLight className="w-4 h-4" /> },
+  { name: "Shortlisted Candidates", path: "shortlisted-candidates", icon: <FaUserCheck className="w-3.5 h-3.5" /> },
+  { name: "Interview Evaluation and Final Selection", path: "interview-evaluation", icon: <FaClipboardCheck className="w-3.5 h-3.5" /> },
+  { name: "Settings", path: "setting", icon: <FaSlidersH className="w-3.5 h-3.5" /> },
 ];
 
 function SidebarContent({ highlightLink, onLinkClick }: { highlightLink: string; onLinkClick?: () => void }) {
   const { t } = useLanguage();
-  const { n1: listOfPageNames, n2: listOfPages } = separatePageData(pathVar);
 
   return (
     <div className="flex flex-col min-h-0">
-      <div className="flex items-center gap-3 px-6 h-16 border-b border-white/5 shrink-0">
-        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+      <div className="flex items-center gap-3 px-5 h-16 border-b border-white/10 shrink-0">
+        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-500 to-orange-700 flex items-center justify-center shadow-md shadow-amber-950/40">
           <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
             <path d="M12 2 3 7v6c0 4.5 3.8 8.3 9 9 5.2-.7 9-4.5 9-9V7l-9-5Zm0 4.2 5 2.8v4c0 3-2.2 5.6-5 6.1-2.8-.5-5-3.1-5-6.1V9l5-2.8Z" />
           </svg>
         </div>
         <div className="leading-tight">
           <p className="text-white font-bold text-sm">{t("CareerAI")}</p>
-          <p className="text-[10px] text-slate-400">{t("Your AI Career Assistant")}</p>
+          <p className="text-[10px] text-amber-200/70">{t("Your AI Career Assistant")}</p>
         </div>
       </div>
+
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-        {listOfPages.map((pagePath, index) => {
-          if (highlightLink === pagePath) {
-            return (
-              <Link
-                key={index}
-                href={pagePath}
-                onClick={onLinkClick}
-                className="self-start inline-flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-semibold shadow-sm"
-              >
-                <span>{t(listOfPageNames[index])}</span>
-              </Link>
-            );
-          }
+        <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">Menu</p>
+        {pathVar.map((item, index) => {
+          const active = highlightLink === item.path;
           return (
             <Link
               key={index}
-              href={pagePath}
+              href={item.path}
               onClick={onLinkClick}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:bg-white/5 hover:text-white transition"
+              className={
+                active
+                  ? "flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gradient-to-r from-amber-600 to-orange-800 text-white text-sm font-semibold shadow-lg shadow-amber-950/40"
+                  : "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:bg-white/5 hover:text-white hover:translate-x-0.5 transition"
+              }
             >
-              <span>{t(listOfPageNames[index])}</span>
+              <span className={active ? "text-amber-200" : ""}>{item.icon}</span>
+              <span className="truncate">{t(item.name)}</span>
             </Link>
           );
         })}
       </nav>
+
+      <div className="px-5 py-4 border-t border-white/10">
+        <div className="rounded-xl bg-white/5 border border-white/10 px-4 py-3">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">{t("Your AI Career Assistant")}</p>
+          <p className="mt-1 text-[11px] text-slate-400 leading-relaxed">Post jobs, score candidates, and hire faster with AI.</p>
+        </div>
+      </div>
     </div>
   );
 }
@@ -96,17 +90,17 @@ function LanguageSelect() {
   return (
     <button
       onClick={() => setLanguage(isEn ? "de" : "en")}
-      className="flex items-center text-xs font-semibold rounded-lg border border-blue-500 bg-white hover:bg-blue-50 transition shrink-0 overflow-hidden"
+      className="flex items-center text-xs font-semibold rounded-lg border border-amber-700 bg-white hover:bg-amber-50 transition shrink-0 overflow-hidden"
     >
-      <span className={"px-2.5 py-1 border-r border-blue-200 " + (isEn ? "bg-blue-500 text-white" : "text-blue-500")}>EN</span>
-      <span className={"px-2.5 py-1 " + (!isEn ? "bg-blue-500 text-white" : "text-blue-500")}>DE</span>
+      <span className={"px-2.5 py-1.5 border-r border-amber-200 " + (isEn ? "bg-amber-700 text-white" : "text-amber-700")}>EN</span>
+      <span className={"px-2.5 py-1.5 " + (!isEn ? "bg-amber-700 text-white" : "text-amber-700")}>DE</span>
     </button>
   );
 }
 
 export default function navAndSidebar({ pageInfo, user, sidebarHeight = "h-screen", children }: pageInfoProps) {
   const [title, titleDescription, highlightLink] = pageInfo;
-  const [name, profilePicLink, notificationNumber, purchasePlan] = user;
+  const [name, profilePicLink, notificationNumber] = user;
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -124,23 +118,23 @@ export default function navAndSidebar({ pageInfo, user, sidebarHeight = "h-scree
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-[#faf6f0]">
       <div className="flex min-h-screen">
         {/* DESKTOP SIDEBAR */}
-        <aside className={`hidden lg:flex flex-col bg-[#0a0e2e] text-slate-300 sticky top-0 w-60 shrink-0 ${sidebarHeight}`}>
+        <aside
+          className={`hidden lg:flex flex-col bg-gradient-to-b from-[#1c0f05] via-[#261205] to-[#331809] text-slate-300 sticky top-0 w-64 shrink-0 ${sidebarHeight}`}
+        >
           <SidebarContent highlightLink={highlightLink} />
         </aside>
 
         {/* MOBILE SIDEBAR OVERLAY */}
         {mobileSidebarOpen && (
           <div className="fixed inset-0 z-50 lg:hidden">
-            <div className="fixed inset-0 bg-black/50" onClick={() => setMobileSidebarOpen(false)} />
-            <aside className="relative w-72 max-w-[80vw] h-full bg-[#0a0e2e] text-slate-300 flex flex-col shadow-xl animate-slide-in">
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setMobileSidebarOpen(false)} />
+            <aside className="relative w-72 max-w-[80vw] h-full bg-gradient-to-b from-[#1c0f05] via-[#261205] to-[#331809] text-slate-300 flex flex-col shadow-2xl animate-slide-in">
               <div className="flex justify-end p-3">
-                <button onClick={() => setMobileSidebarOpen(false)} className="text-slate-400 hover:text-white">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-                  </svg>
+                <button onClick={() => setMobileSidebarOpen(false)} className="text-slate-400 hover:text-white p-2">
+                  <FaX className="w-5 h-5" />
                 </button>
               </div>
               <SidebarContent highlightLink={highlightLink} onLinkClick={() => setMobileSidebarOpen(false)} />
@@ -151,15 +145,13 @@ export default function navAndSidebar({ pageInfo, user, sidebarHeight = "h-scree
         {/* CONTENT WRAPPER */}
         <div className="flex-1 min-w-0 flex flex-col">
           {/* TOP BAR */}
-          <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
+          <header className="bg-white/90 backdrop-blur-md border-b border-amber-900/10 sticky top-0 z-10">
             <div className="px-4 sm:px-6 h-16 flex items-center gap-3">
               <button
                 onClick={() => setMobileSidebarOpen(true)}
-                className="lg:hidden text-slate-500 hover:text-slate-700 -ml-1"
+                className="lg:hidden text-slate-500 hover:text-slate-700 -ml-1 p-1"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-                </svg>
+                <FaBars className="w-5 h-5" />
               </button>
 
               <div className="flex-1 min-w-0">
@@ -168,30 +160,30 @@ export default function navAndSidebar({ pageInfo, user, sidebarHeight = "h-scree
 
               <LanguageSelect />
 
-              <span className="w-px h-6 bg-slate-200 shrink-0"></span>
+              <span className="w-px h-6 bg-slate-200 shrink-0" />
 
               <div className="relative shrink-0">
                 <button onClick={() => setProfileOpen((p) => !p)} className="flex items-center gap-2.5">
-                  <img src={profilePicLink} alt={displayName} className="w-8 h-8 sm:w-9 sm:h-9 rounded-full object-cover" />
+                  <img src={profilePicLink} alt={displayName} className="w-8 h-8 sm:w-9 sm:h-9 rounded-full object-cover ring-2 ring-amber-700/30" />
                   <div className="leading-tight hidden sm:block text-left">
                     <p className="text-sm font-semibold text-slate-800">{displayName}</p>
-                    <p className="text-[11px] text-blue-500 font-medium">{t(purchasePlan)}</p>
+                    <p className="text-[11px] text-amber-700 font-medium">{t(user[3])}</p>
                   </div>
-                  <svg className="w-4 h-4 text-slate-400 hidden sm:block" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-                  </svg>
+                  <FaCaretDown className="w-4 h-4 text-slate-400 hidden sm:block" />
                 </button>
                 {profileOpen && (
                   <>
                     <div className="fixed inset-0 z-10" onClick={() => setProfileOpen(false)} />
                     <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl border border-slate-200 shadow-lg z-20 py-1">
+                      <div className="px-4 py-3 border-b border-slate-100">
+                        <p className="text-sm font-semibold text-slate-800 truncate">{displayName}</p>
+                        <p className="text-[11px] text-amber-700 font-medium">{t(user[3])}</p>
+                      </div>
                       <button
                         onClick={handleLogout}
                         className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-600 hover:bg-red-50 hover:text-red-600 transition text-left"
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
-                        </svg>
+                        <FaSignOutAlt className="w-4 h-4" />
                         {t("Logout")}
                       </button>
                     </div>
@@ -202,7 +194,7 @@ export default function navAndSidebar({ pageInfo, user, sidebarHeight = "h-scree
           </header>
 
           {titleDescription && (
-            <p className="px-4 sm:px-6 pt-4 text-sm text-slate-400">{t(titleDescription)}</p>
+            <p className="px-4 sm:px-6 pt-4 text-sm text-slate-500">{t(titleDescription)}</p>
           )}
 
           {children && (
