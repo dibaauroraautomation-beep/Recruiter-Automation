@@ -1,4 +1,22 @@
 "use client";
+<<<<<<< HEAD
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useUser } from "@/app/contexts/UserContext";
+
+function LoginContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { user, setUser } = useUser();
+  const [isRegister, setIsRegister] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("tab") === "register") {
+      setIsRegister(true);
+    }
+  }, [searchParams]);
+
+=======
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/app/contexts/UserContext";
@@ -8,6 +26,7 @@ export default function LoginPage() {
   const { user, setUser } = useUser();
   const [isRegister, setIsRegister] = useState(false);
 
+>>>>>>> e71ad726869ec7a7be04ab36e339ef2f87339d19
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
 
@@ -91,22 +110,41 @@ export default function LoginPage() {
     setLoginMsg(null);
   };
 
+<<<<<<< HEAD
+  const inputClass =
+    "w-full px-3 py-2 text-sm text-slate-800 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-400 placeholder:text-slate-400";
+
+  return (
+    <div className="min-h-screen bg-[#faf6f0] flex items-center justify-center px-4 py-12">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <div className="w-12 h-12 mx-auto rounded-xl bg-gradient-to-br from-amber-500 to-orange-700 flex items-center justify-center mb-4 shadow-md shadow-amber-950/40">
+=======
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-white flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="w-12 h-12 mx-auto rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mb-4">
+>>>>>>> e71ad726869ec7a7be04ab36e339ef2f87339d19
             <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 2 3 7v6c0 4.5 3.8 8.3 9 9 5.2-.7 9-4.5 9-9V7l-9-5Zm0 4.2 5 2.8v4c0 3-2.2 5.6-5 6.1-2.8-.5-5-3.1-5-6.1V9l5-2.8Z" />
             </svg>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-800">CareerAI</h1>
+<<<<<<< HEAD
+          <p className="text-sm text-slate-500 mt-1">
+=======
           <p className="text-sm text-slate-400 mt-1">
+>>>>>>> e71ad726869ec7a7be04ab36e339ef2f87339d19
             {isRegister ? "Create your account" : "Sign in to your account"}
           </p>
         </div>
 
+<<<<<<< HEAD
+        <div className="bg-white rounded-2xl shadow-sm border border-amber-900/10 p-6 sm:p-8">
+=======
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8">
+>>>>>>> e71ad726869ec7a7be04ab36e339ef2f87339d19
           {isRegister ? (
             <form onSubmit={handleRegister} className="space-y-4">
               {registered && (
@@ -123,7 +161,11 @@ export default function LoginPage() {
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
                     placeholder="John"
+<<<<<<< HEAD
+                    className={inputClass}
+=======
                     className="w-full px-3 py-2 text-sm text-slate-800 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 placeholder:text-slate-400"
+>>>>>>> e71ad726869ec7a7be04ab36e339ef2f87339d19
                   />
                 </div>
                 <div>
@@ -134,7 +176,11 @@ export default function LoginPage() {
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
                     placeholder="Doe"
+<<<<<<< HEAD
+                    className={inputClass}
+=======
                     className="w-full px-3 py-2 text-sm text-slate-800 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 placeholder:text-slate-400"
+>>>>>>> e71ad726869ec7a7be04ab36e339ef2f87339d19
                   />
                 </div>
               </div>
@@ -147,7 +193,11 @@ export default function LoginPage() {
                   value={regEmail}
                   onChange={(e) => setRegEmail(e.target.value)}
                   placeholder="you@example.com"
+<<<<<<< HEAD
+                  className={inputClass}
+=======
                   className="w-full px-3 py-2 text-sm text-slate-800 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 placeholder:text-slate-400"
+>>>>>>> e71ad726869ec7a7be04ab36e339ef2f87339d19
                 />
               </div>
 
@@ -160,12 +210,20 @@ export default function LoginPage() {
                     value={regPassword}
                     onChange={(e) => setRegPassword(e.target.value)}
                     placeholder="••••••••"
+<<<<<<< HEAD
+                    className={inputClass + " pr-10"}
+=======
                     className="w-full px-3 py-2 pr-10 text-sm text-slate-800 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 placeholder:text-slate-400"
+>>>>>>> e71ad726869ec7a7be04ab36e339ef2f87339d19
                   />
                   <button
                     type="button"
                     onClick={() => setShowRegPassword((p) => !p)}
+<<<<<<< HEAD
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-amber-600"
+=======
                     className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+>>>>>>> e71ad726869ec7a7be04ab36e339ef2f87339d19
                   >
                     {showRegPassword ? (
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
@@ -187,7 +245,11 @@ export default function LoginPage() {
                   required
                   value={language}
                   onChange={(e) => setLanguage(e.target.value)}
+<<<<<<< HEAD
+                  className={inputClass}
+=======
                   className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 bg-white"
+>>>>>>> e71ad726869ec7a7be04ab36e339ef2f87339d19
                 >
                   <option value="">Select language</option>
                   <option value="english">English</option>
@@ -200,7 +262,11 @@ export default function LoginPage() {
                   type="checkbox"
                   checked={agree}
                   onChange={(e) => setAgree(e.target.checked)}
+<<<<<<< HEAD
+                  className="w-4 h-4 mt-0.5 rounded border-slate-300 text-amber-600 focus:ring-amber-500"
+=======
                   className="w-4 h-4 mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+>>>>>>> e71ad726869ec7a7be04ab36e339ef2f87339d19
                 />
                 <span className="text-xs text-slate-500 leading-relaxed">
                   I agree to submit all information
@@ -210,7 +276,11 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={!agree || submitting}
+<<<<<<< HEAD
+                className="w-full py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-amber-700 to-orange-800 hover:from-amber-800 hover:to-orange-900 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition shadow-sm"
+=======
                 className="w-full py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition shadow-sm"
+>>>>>>> e71ad726869ec7a7be04ab36e339ef2f87339d19
               >
                 {submitting ? "Registering..." : "Register"}
               </button>
@@ -234,7 +304,11 @@ export default function LoginPage() {
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
                   placeholder="you@example.com"
+<<<<<<< HEAD
+                  className={inputClass}
+=======
                   className="w-full px-3 py-2 text-sm text-slate-800 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 placeholder:text-slate-400"
+>>>>>>> e71ad726869ec7a7be04ab36e339ef2f87339d19
                 />
               </div>
 
@@ -247,12 +321,20 @@ export default function LoginPage() {
                     value={loginPassword}
                     onChange={(e) => setLoginPassword(e.target.value)}
                     placeholder="••••••••"
+<<<<<<< HEAD
+                    className={inputClass + " pr-10"}
+=======
                     className="w-full px-3 py-2 pr-10 text-sm text-slate-800 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 placeholder:text-slate-400"
+>>>>>>> e71ad726869ec7a7be04ab36e339ef2f87339d19
                   />
                   <button
                     type="button"
                     onClick={() => setShowLoginPassword((p) => !p)}
+<<<<<<< HEAD
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-amber-600"
+=======
                     className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+>>>>>>> e71ad726869ec7a7be04ab36e339ef2f87339d19
                   >
                     {showLoginPassword ? (
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
@@ -270,7 +352,11 @@ export default function LoginPage() {
 
               <button
                 type="submit"
+<<<<<<< HEAD
+                className="w-full py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-amber-700 to-orange-800 hover:from-amber-800 hover:to-orange-900 rounded-xl transition shadow-sm"
+=======
                 className="w-full py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 rounded-lg transition shadow-sm"
+>>>>>>> e71ad726869ec7a7be04ab36e339ef2f87339d19
               >
                 Sign In
               </button>
@@ -278,11 +364,19 @@ export default function LoginPage() {
           )}
 
           <div className="mt-6 text-center">
+<<<<<<< HEAD
+            <p className="text-xs text-slate-500">
+              {isRegister ? "Already have an account?" : "Don't have an account?"}{" "}
+              <button
+                onClick={toggle}
+                className="font-medium text-amber-700 hover:text-amber-800 transition"
+=======
             <p className="text-xs text-slate-400">
               {isRegister ? "Already have an account?" : "Don't have an account?"}{" "}
               <button
                 onClick={toggle}
                 className="font-medium text-indigo-600 hover:text-indigo-700 transition"
+>>>>>>> e71ad726869ec7a7be04ab36e339ef2f87339d19
               >
                 {isRegister ? "Sign In" : "Register"}
               </button>
@@ -293,3 +387,14 @@ export default function LoginPage() {
     </div>
   );
 }
+<<<<<<< HEAD
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginContent />
+    </Suspense>
+  );
+}
+=======
+>>>>>>> e71ad726869ec7a7be04ab36e339ef2f87339d19
