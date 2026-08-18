@@ -136,7 +136,7 @@ export default function Home() {
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-9">
               <Link
-                href="pages/job-postings"
+                href="pages/login?tab=register"
                 className="px-7 py-3 text-sm font-semibold text-white bg-gradient-to-r from-amber-700 to-orange-800 rounded-xl hover:from-amber-800 hover:to-orange-900 transition shadow-lg shadow-amber-900/20"
               >
                 {t[lang].get_started}
@@ -179,7 +179,7 @@ export default function Home() {
                 {t[lang].cta_desc}
               </p>
               <Link
-                href="pages/job-postings"
+                href="pages/login?tab=register"
                 className="inline-flex mt-8 px-8 py-3.5 text-sm font-semibold text-amber-950 bg-gradient-to-r from-amber-400 to-orange-400 rounded-xl hover:from-amber-500 hover:to-orange-500 transition shadow-lg shadow-amber-950/30"
               >
                 {t[lang].cta_btn}
