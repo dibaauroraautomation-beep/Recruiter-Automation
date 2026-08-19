@@ -78,32 +78,32 @@ export default function Home() {
   const [lang, setLang] = useState<Lang>("en");
 
   return (
-    <div className="min-h-screen bg-[#fdf9f3] text-slate-900 antialiased">
-      <header className="sticky top-0 z-20 bg-[#fdf9f3]/80 backdrop-blur-md border-b border-amber-900/10">
+    <div className="min-h-screen bg-white text-slate-900 antialiased">
+      <header className="sticky top-0 z-20 bg-white/80 backdrop-blur-md border-b border-slate-100">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-600 to-orange-800 flex items-center justify-center shadow-sm">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-sm">
               <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 2 3 7v6c0 4.5 3.8 8.3 9 9 5.2-.7 9-4.5 9-9V7l-9-5Zm0 4.2 5 2.8v4c0 3-2.2 5.6-5 6.1-2.8-.5-5-3.1-5-6.1V9l5-2.8Z" />
               </svg>
             </div>
             <div className="leading-tight">
               <span className="block text-lg font-bold text-slate-900">CareerAI</span>
-              <span className="block text-[10px] font-medium text-amber-800">{t[lang].badge}</span>
+              <span className="block text-[10px] font-medium text-indigo-600">{t[lang].badge}</span>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <button
               onClick={() => setLang(lang === "en" ? "de" : "en")}
-              className="flex items-center text-xs font-semibold rounded-lg border border-amber-700 bg-white hover:bg-amber-50 transition shrink-0 overflow-hidden"
+              className="flex items-center text-xs font-semibold rounded-lg border border-blue-500 bg-white hover:bg-blue-50 transition shrink-0 overflow-hidden"
             >
-              <span className={"px-2.5 py-1.5 border-r border-amber-200 " + (lang === "en" ? "bg-amber-700 text-white" : "text-amber-700")}>EN</span>
-              <span className={"px-2.5 py-1.5 " + (lang === "de" ? "bg-amber-700 text-white" : "text-amber-700")}>DE</span>
+              <span className={"px-2.5 py-1.5 border-r border-blue-200 " + (lang === "en" ? "bg-blue-500 text-white" : "text-blue-500")}>EN</span>
+              <span className={"px-2.5 py-1.5 " + (lang === "de" ? "bg-blue-500 text-white" : "text-blue-500")}>DE</span>
             </button>
             <span className="hidden sm:block w-px h-6 bg-slate-200" />
             <Link
               href="pages/login"
-              className="hidden sm:inline-flex px-5 py-2 text-sm font-semibold text-white bg-gradient-to-r from-amber-700 to-orange-800 rounded-xl hover:from-amber-800 hover:to-orange-900 transition shadow-sm"
+              className="hidden sm:inline-flex px-5 py-2 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-blue-600 rounded-xl hover:from-indigo-700 hover:to-blue-700 transition shadow-sm"
             >
               {t[lang].login}
             </Link>
@@ -119,9 +119,9 @@ export default function Home() {
 
       <main>
         <section className="relative overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(60%_50%_at_50%_0%,rgba(217,119,6,0.12),transparent_70%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(60%_50%_at_50%_0%,rgba(99,102,241,0.12),transparent_70%)]" />
           <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-20 pb-16 text-center">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 mb-7 text-xs font-semibold text-amber-900 bg-amber-100/70 rounded-full border border-amber-300/60 shadow-sm">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 mb-7 text-xs font-semibold text-indigo-600 bg-indigo-50 rounded-full border border-indigo-100 shadow-sm">
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7Z" />
               </svg>
@@ -129,25 +129,21 @@ export default function Home() {
             </div>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-slate-900 leading-tight max-w-3xl mx-auto tracking-tight">
               {t[lang].hero_title_1}<br />
-              <span className="bg-gradient-to-r from-amber-600 via-orange-700 to-orange-800 bg-clip-text text-transparent">{t[lang].hero_title_2}</span>
+              <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">{t[lang].hero_title_2}</span>
             </h1>
             <p className="mt-5 text-base sm:text-lg text-slate-600 max-w-xl mx-auto leading-relaxed">
               {t[lang].hero_desc}
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-9">
               <Link
-<<<<<<< HEAD
                 href="pages/login?tab=register"
-=======
-                href="pages/job-postings"
->>>>>>> e71ad726869ec7a7be04ab36e339ef2f87339d19
-                className="px-7 py-3 text-sm font-semibold text-white bg-gradient-to-r from-amber-700 to-orange-800 rounded-xl hover:from-amber-800 hover:to-orange-900 transition shadow-lg shadow-amber-900/20"
+                className="px-7 py-3 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-blue-600 rounded-xl hover:from-indigo-700 hover:to-blue-700 transition shadow-lg shadow-indigo-900/20"
               >
                 {t[lang].get_started}
               </Link>
               <Link
                 href="pages/about"
-                className="px-7 py-3 text-sm font-semibold text-slate-700 border border-slate-300 bg-white rounded-xl hover:border-amber-700 hover:text-amber-800 transition"
+                className="px-7 py-3 text-sm font-semibold text-slate-700 border border-slate-300 bg-white rounded-xl hover:border-indigo-600 hover:text-indigo-600 transition"
               >
                 {t[lang].learn_more}
               </Link>
@@ -160,9 +156,9 @@ export default function Home() {
             {features.map((f, i) => (
               <div
                 key={i}
-                className="group p-6 rounded-2xl border border-amber-900/10 bg-white shadow-sm hover:shadow-lg hover:border-amber-700/30 hover:-translate-y-1 transition-all duration-300"
+                className="group p-6 rounded-2xl border border-slate-200 bg-white shadow-sm hover:shadow-lg hover:border-indigo-200 hover:-translate-y-1 transition-all duration-300"
               >
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-100 to-orange-100 text-amber-800 flex items-center justify-center mb-4 group-hover:from-amber-700 group-hover:to-orange-800 group-hover:text-white transition-colors duration-300">
+                <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4 group-hover:from-indigo-600 group-hover:to-blue-600 group-hover:text-white transition-colors duration-300">
                   {f.icon}
                 </div>
                 <h3 className="text-base font-bold text-slate-800 mb-1.5">{t[lang][f.titleKey]}</h3>
@@ -173,22 +169,18 @@ export default function Home() {
         </section>
 
         <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-24">
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#2a1607] via-[#3d1f0c] to-[#5a2f14] px-6 sm:px-12 py-14 text-center shadow-xl">
-            <div className="absolute inset-0 bg-[radial-gradient(50%_60%_at_50%_0%,rgba(251,146,60,0.25),transparent_70%)]" />
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0a0e2e] via-[#131641] to-[#1e1b4b] px-6 sm:px-12 py-14 text-center shadow-xl">
+            <div className="absolute inset-0 bg-[radial-gradient(50%_60%_at_50%_0%,rgba(99,102,241,0.25),transparent_70%)]" />
             <div className="relative">
               <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white leading-tight">
                 {t[lang].cta_title}
               </h2>
-              <p className="mt-3 text-sm sm:text-base text-amber-100/80 max-w-md mx-auto leading-relaxed">
+              <p className="mt-3 text-sm sm:text-base text-indigo-100/80 max-w-md mx-auto leading-relaxed">
                 {t[lang].cta_desc}
               </p>
               <Link
-<<<<<<< HEAD
                 href="pages/login?tab=register"
-=======
-                href="pages/job-postings"
->>>>>>> e71ad726869ec7a7be04ab36e339ef2f87339d19
-                className="inline-flex mt-8 px-8 py-3.5 text-sm font-semibold text-amber-950 bg-gradient-to-r from-amber-400 to-orange-400 rounded-xl hover:from-amber-500 hover:to-orange-500 transition shadow-lg shadow-amber-950/30"
+                className="inline-flex mt-8 px-8 py-3.5 text-sm font-semibold text-white bg-gradient-to-r from-blue-400 to-indigo-500 rounded-xl hover:from-blue-500 hover:to-indigo-600 transition shadow-lg shadow-indigo-950/30"
               >
                 {t[lang].cta_btn}
               </Link>
@@ -197,19 +189,15 @@ export default function Home() {
         </section>
       </main>
 
-      <footer className="border-t border-amber-900/10">
+      <footer className="border-t border-slate-100">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <span className="text-xs text-slate-500">{t[lang].footer_copy}</span>
           <div className="flex items-center gap-4">
-            <Link href="pages/about" className="text-xs text-slate-500 hover:text-amber-800 transition">{t[lang].about}</Link>
-            <Link href="pages/login" className="text-xs text-slate-500 hover:text-amber-800 transition">{t[lang].login}</Link>
+            <Link href="pages/about" className="text-xs text-slate-500 hover:text-indigo-600 transition">{t[lang].about}</Link>
+            <Link href="pages/login" className="text-xs text-slate-500 hover:text-indigo-600 transition">{t[lang].login}</Link>
           </div>
         </div>
       </footer>
     </div>
   );
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> e71ad726869ec7a7be04ab36e339ef2f87339d19

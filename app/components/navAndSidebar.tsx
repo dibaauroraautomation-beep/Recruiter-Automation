@@ -41,14 +41,14 @@ function SidebarContent({ highlightLink, onLinkClick }: { highlightLink: string;
   return (
     <div className="flex flex-col min-h-0">
       <div className="flex items-center gap-3 px-5 h-16 border-b border-white/10 shrink-0">
-        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-500 to-orange-700 flex items-center justify-center shadow-md shadow-amber-950/40">
+        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md shadow-indigo-950/40">
           <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
             <path d="M12 2 3 7v6c0 4.5 3.8 8.3 9 9 5.2-.7 9-4.5 9-9V7l-9-5Zm0 4.2 5 2.8v4c0 3-2.2 5.6-5 6.1-2.8-.5-5-3.1-5-6.1V9l5-2.8Z" />
           </svg>
         </div>
         <div className="leading-tight">
           <p className="text-white font-bold text-sm">{t("CareerAI")}</p>
-          <p className="text-[10px] text-amber-200/70">{t("Your AI Career Assistant")}</p>
+          <p className="text-[10px] text-slate-400">{t("Your AI Career Assistant")}</p>
         </div>
       </div>
 
@@ -63,11 +63,11 @@ function SidebarContent({ highlightLink, onLinkClick }: { highlightLink: string;
               onClick={onLinkClick}
               className={
                 active
-                  ? "flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gradient-to-r from-amber-600 to-orange-800 text-white text-sm font-semibold shadow-lg shadow-amber-950/40"
+                  ? "flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-semibold shadow-lg shadow-indigo-950/40"
                   : "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:bg-white/5 hover:text-white hover:translate-x-0.5 transition"
               }
             >
-              <span className={active ? "text-amber-200" : ""}>{item.icon}</span>
+              <span className={active ? "text-indigo-200" : ""}>{item.icon}</span>
               <span className="truncate">{t(item.name)}</span>
             </Link>
           );
@@ -90,10 +90,10 @@ function LanguageSelect() {
   return (
     <button
       onClick={() => setLanguage(isEn ? "de" : "en")}
-      className="flex items-center text-xs font-semibold rounded-lg border border-amber-700 bg-white hover:bg-amber-50 transition shrink-0 overflow-hidden"
+      className="flex items-center text-xs font-semibold rounded-lg border border-blue-500 bg-white hover:bg-blue-50 transition shrink-0 overflow-hidden"
     >
-      <span className={"px-2.5 py-1.5 border-r border-amber-200 " + (isEn ? "bg-amber-700 text-white" : "text-amber-700")}>EN</span>
-      <span className={"px-2.5 py-1.5 " + (!isEn ? "bg-amber-700 text-white" : "text-amber-700")}>DE</span>
+      <span className={"px-2.5 py-1.5 border-r border-blue-200 " + (isEn ? "bg-blue-500 text-white" : "text-blue-500")}>EN</span>
+      <span className={"px-2.5 py-1.5 " + (!isEn ? "bg-blue-500 text-white" : "text-blue-500")}>DE</span>
     </button>
   );
 }
@@ -118,11 +118,11 @@ export default function navAndSidebar({ pageInfo, user, sidebarHeight = "h-scree
   };
 
   return (
-    <div className="min-h-screen bg-[#faf6f0]">
+    <div className="min-h-screen bg-slate-50">
       <div className="flex min-h-screen">
         {/* DESKTOP SIDEBAR */}
         <aside
-          className={`hidden lg:flex flex-col bg-gradient-to-b from-[#1c0f05] via-[#261205] to-[#331809] text-slate-300 sticky top-0 w-64 shrink-0 ${sidebarHeight}`}
+          className={`hidden lg:flex flex-col bg-[#0a0e2e] text-slate-300 sticky top-0 w-64 shrink-0 ${sidebarHeight}`}
         >
           <SidebarContent highlightLink={highlightLink} />
         </aside>
@@ -130,8 +130,8 @@ export default function navAndSidebar({ pageInfo, user, sidebarHeight = "h-scree
         {/* MOBILE SIDEBAR OVERLAY */}
         {mobileSidebarOpen && (
           <div className="fixed inset-0 z-50 lg:hidden">
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setMobileSidebarOpen(false)} />
-            <aside className="relative w-72 max-w-[80vw] h-full bg-gradient-to-b from-[#1c0f05] via-[#261205] to-[#331809] text-slate-300 flex flex-col shadow-2xl animate-slide-in">
+            <div className="fixed inset-0 bg-black/50" onClick={() => setMobileSidebarOpen(false)} />
+            <aside className="relative w-72 max-w-[80vw] h-full bg-[#0a0e2e] text-slate-300 flex flex-col shadow-2xl animate-slide-in">
               <div className="flex justify-end p-3">
                 <button onClick={() => setMobileSidebarOpen(false)} className="text-slate-400 hover:text-white p-2">
                   <FaX className="w-5 h-5" />
@@ -145,7 +145,7 @@ export default function navAndSidebar({ pageInfo, user, sidebarHeight = "h-scree
         {/* CONTENT WRAPPER */}
         <div className="flex-1 min-w-0 flex flex-col">
           {/* TOP BAR */}
-          <header className="bg-white/90 backdrop-blur-md border-b border-amber-900/10 sticky top-0 z-10">
+          <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
             <div className="px-4 sm:px-6 h-16 flex items-center gap-3">
               <button
                 onClick={() => setMobileSidebarOpen(true)}
@@ -164,10 +164,10 @@ export default function navAndSidebar({ pageInfo, user, sidebarHeight = "h-scree
 
               <div className="relative shrink-0">
                 <button onClick={() => setProfileOpen((p) => !p)} className="flex items-center gap-2.5">
-                  <img src={profilePicLink} alt={displayName} className="w-8 h-8 sm:w-9 sm:h-9 rounded-full object-cover ring-2 ring-amber-700/30" />
+                  <img src={profilePicLink} alt={displayName} className="w-8 h-8 sm:w-9 sm:h-9 rounded-full object-cover ring-2 ring-blue-500/30" />
                   <div className="leading-tight hidden sm:block text-left">
                     <p className="text-sm font-semibold text-slate-800">{displayName}</p>
-                    <p className="text-[11px] text-amber-700 font-medium">{t(user[3])}</p>
+                    <p className="text-[11px] text-blue-500 font-medium">{t(user[3])}</p>
                   </div>
                   <FaCaretDown className="w-4 h-4 text-slate-400 hidden sm:block" />
                 </button>
@@ -177,7 +177,7 @@ export default function navAndSidebar({ pageInfo, user, sidebarHeight = "h-scree
                     <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl border border-slate-200 shadow-lg z-20 py-1">
                       <div className="px-4 py-3 border-b border-slate-100">
                         <p className="text-sm font-semibold text-slate-800 truncate">{displayName}</p>
-                        <p className="text-[11px] text-amber-700 font-medium">{t(user[3])}</p>
+                        <p className="text-[11px] text-blue-500 font-medium">{t(user[3])}</p>
                       </div>
                       <button
                         onClick={handleLogout}
@@ -194,7 +194,7 @@ export default function navAndSidebar({ pageInfo, user, sidebarHeight = "h-scree
           </header>
 
           {titleDescription && (
-            <p className="px-4 sm:px-6 pt-4 text-sm text-slate-500">{t(titleDescription)}</p>
+            <p className="px-4 sm:px-6 pt-4 text-sm text-slate-400">{t(titleDescription)}</p>
           )}
 
           {children && (
