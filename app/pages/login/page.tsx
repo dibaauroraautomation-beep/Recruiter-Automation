@@ -99,13 +99,13 @@ function LoginContent() {
   };
 
   const inputClass =
-    "w-full px-3 py-2 text-sm text-slate-800 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-400 placeholder:text-slate-400";
+    "w-full px-3 py-2 text-sm text-slate-800 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 placeholder:text-slate-400";
 
   return (
-    <div className="min-h-screen bg-[#faf6f0] flex items-center justify-center px-4 py-12">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-white flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="w-12 h-12 mx-auto rounded-xl bg-gradient-to-br from-amber-500 to-orange-700 flex items-center justify-center mb-4 shadow-md shadow-amber-950/40">
+          <div className="w-12 h-12 mx-auto rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mb-4 shadow-md shadow-indigo-950/40">
             <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 2 3 7v6c0 4.5 3.8 8.3 9 9 5.2-.7 9-4.5 9-9V7l-9-5Zm0 4.2 5 2.8v4c0 3-2.2 5.6-5 6.1-2.8-.5-5-3.1-5-6.1V9l5-2.8Z" />
             </svg>
@@ -116,7 +116,7 @@ function LoginContent() {
           </p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-amber-900/10 p-6 sm:p-8">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 sm:p-8">
           {isRegister ? (
             <form onSubmit={handleRegister} className="space-y-4">
               {registered && (
@@ -175,7 +175,7 @@ function LoginContent() {
                   <button
                     type="button"
                     onClick={() => setShowRegPassword((p) => !p)}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-amber-600"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600"
                   >
                     {showRegPassword ? (
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
@@ -210,7 +210,7 @@ function LoginContent() {
                   type="checkbox"
                   checked={agree}
                   onChange={(e) => setAgree(e.target.checked)}
-                  className="w-4 h-4 mt-0.5 rounded border-slate-300 text-amber-600 focus:ring-amber-500"
+                  className="w-4 h-4 mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                 />
                 <span className="text-xs text-slate-500 leading-relaxed">
                   I agree to submit all information
@@ -220,7 +220,7 @@ function LoginContent() {
               <button
                 type="submit"
                 disabled={!agree || submitting}
-                className="w-full py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-amber-700 to-orange-800 hover:from-amber-800 hover:to-orange-900 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition shadow-sm"
+                className="w-full py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition shadow-sm"
               >
                 {submitting ? "Registering..." : "Register"}
               </button>
@@ -262,7 +262,7 @@ function LoginContent() {
                   <button
                     type="button"
                     onClick={() => setShowLoginPassword((p) => !p)}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-amber-600"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600"
                   >
                     {showLoginPassword ? (
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
@@ -280,7 +280,7 @@ function LoginContent() {
 
               <button
                 type="submit"
-                className="w-full py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-amber-700 to-orange-800 hover:from-amber-800 hover:to-orange-900 rounded-xl transition shadow-sm"
+                className="w-full py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 rounded-xl transition shadow-sm"
               >
                 Sign In
               </button>
@@ -292,7 +292,7 @@ function LoginContent() {
               {isRegister ? "Already have an account?" : "Don't have an account?"}{" "}
               <button
                 onClick={toggle}
-                className="font-medium text-amber-700 hover:text-amber-800 transition"
+                className="font-medium text-indigo-600 hover:text-indigo-700 transition"
               >
                 {isRegister ? "Sign In" : "Register"}
               </button>
