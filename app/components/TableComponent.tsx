@@ -15,46 +15,332 @@ import { MdCancel } from "react-icons/md";
 
 
 
-const fetchDataFromTable = (
-  statusState: any,
-  applicationId: number,
-  roleName: string = "",
+const fetchDataFromTable = async (
   userId: string = "",
   baseUrl: string = "https://n8naurora.duckdns.org/webhook/data-Fetch"
   // baseUrl: string = "https://n8naurora.duckdns.org/webhook-test/data-Fetch",
-) => {
-  console.log("geting datas:", applicationId);
+): Promise<string> => {
+  console.log("geting datas:", userId);
 
   // FIX: Explicitly updated 'statusSates' to 'statusState' to match standard parsers
-  let targetUrl = `${baseUrl}?userId=${userId}&statusState=${statusState}&id=${applicationId}`;
+  let targetUrl = `${baseUrl}?userId=${userId}`;
   
-  if (roleName) {
-    targetUrl += `&role=${encodeURIComponent(roleName)}`;
-  }
- 
-  fetch(targetUrl, { method: "GET" })
-    .then((response) => {
-      // console.log(response);
-      if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-      return response.text();
-      // return response;
-    })
-    .then((e) => console.log("get data as text form",e))
-    .catch((error) => console.error("Fetch failed:", error));
+  
+  const response = await fetch(targetUrl, { method: "GET" });
+  if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+  return await response.text();
 };
 
 
+interface ScapColumnData {
+  [header: string]: string[];
+}
 
+function TableComponentScapData(text: string = ""): ScapColumnData {
+  try {
+    if (!text || !text.trim()) return {};
 
-export default function TableComponent() {
+    const parsed = JSON.parse(text) as Record<string, unknown>[];
 
-  console.log("dfjhkfjhksdfjh::::");
-  let a = fetchDataFromTable("asdfg",23,"sdf","ewe");
-console.log("aaaaa",a);
+    if (!Array.isArray(parsed) || parsed.length === 0) return {};
+
+    const headers = Array.from(
+      new Set(parsed.flatMap((row) => Object.keys(row)))
+    );
+
+    const result: ScapColumnData = {};
+
+    headers.forEach((header) => {
+      result[header] = parsed.map((row) => {
+        const value = row[header];
+        return value === null || value === undefined || value === "" ? "null" : String(value);
+      });
+    });
+
+    return result;
+  } catch (error) {
+    console.error("Failed to parse table data:", error);
+    return {};
+  }
+}
+
+const getColumnLetter = (index: number): string => {
+  let letter = "";
+  let n = index;
+  do {
+    letter = String.fromCharCode(65 + (n % 26)) + letter;
+    n = Math.floor(n / 26) - 1;
+  } while (n >= 0);
+  return letter;
+};
+
+type FormulaToken = {
+  type: "number" | "string" | "ident" | "op" | "lparen" | "rparen" | "comma";
+  value: string;
+};
+
+type FormulaValue = number | string;
+
+const tokenize = (expr: string): FormulaToken[] => {
+  const tokens: FormulaToken[] = [];
+  let i = 0;
+  while (i < expr.length) {
+    const ch = expr[i];
+    if (ch === " " || ch === "\t") { i++; continue; }
+    if (ch >= "0" && ch <= "9") {
+      let num = "";
+      while (i < expr.length && /[0-9.]/.test(expr[i])) { num += expr[i]; i++; }
+      tokens.push({ type: "number", value: num });
+      continue;
+    }
+    if (ch === '"') {
+      let s = "";
+      i++;
+      while (i < expr.length && expr[i] !== '"') { s += expr[i]; i++; }
+      i++;
+      tokens.push({ type: "string", value: s });
+      continue;
+    }
+    if (/[A-Za-z]/.test(ch)) {
+      let ident = "";
+      while (i < expr.length && /[A-Za-z0-9]/.test(expr[i])) { ident += expr[i]; i++; }
+      tokens.push({ type: "ident", value: ident });
+      continue;
+    }
+    const two = expr.substr(i, 2);
+    if (two === ">=" || two === "<=" || two === "==" || two === "!=") {
+      tokens.push({ type: "op", value: two }); i += 2; continue;
+    }
+    if (ch === ">" || ch === "<" || ch === "+" || ch === "-" || ch === "*" || ch === "/" || ch === "%") {
+      tokens.push({ type: "op", value: ch }); i++; continue;
+    }
+    if (ch === "(") { tokens.push({ type: "lparen", value: "(" }); i++; continue; }
+    if (ch === ")") { tokens.push({ type: "rparen", value: ")" }); i++; continue; }
+    if (ch === ",") { tokens.push({ type: "comma", value: "," }); i++; continue; }
+    i++;
+  }
+  return tokens;
+};
+
+const toNumber = (v: FormulaValue): number => {
+  if (typeof v === "number") return v;
+  const n = parseFloat(v);
+  return Number.isFinite(n) ? n : NaN;
+};
+
+const isNumeric = (v: FormulaValue): boolean => !Number.isNaN(toNumber(v));
+
+const arithmetic = (a: FormulaValue, b: FormulaValue, op: string): FormulaValue => {
+  if (op === "+") {
+    if (isNumeric(a) && isNumeric(b)) return toNumber(a) + toNumber(b);
+    return String(a) + String(b);
+  }
+  if (op === "-") return toNumber(a) - toNumber(b);
+  if (op === "*") return toNumber(a) * toNumber(b);
+  if (op === "/") return toNumber(b) === 0 ? NaN : toNumber(a) / toNumber(b);
+  if (op === "%") return toNumber(a) % toNumber(b);
+  return NaN;
+};
+
+const compareValues = (a: FormulaValue, b: FormulaValue, op: string): boolean => {
+  if (isNumeric(a) && isNumeric(b)) {
+    const x = toNumber(a);
+    const y = toNumber(b);
+    switch (op) {
+      case ">": return x > y;
+      case "<": return x < y;
+      case ">=": return x >= y;
+      case "<=": return x <= y;
+      case "==": return x === y;
+      case "!=": return x !== y;
+    }
+  }
+  const x = String(a);
+  const y = String(b);
+  switch (op) {
+    case ">": return x > y;
+    case "<": return x < y;
+    case ">=": return x >= y;
+    case "<=": return x <= y;
+    case "==": return x === y;
+    case "!=": return x !== y;
+  }
+  return false;
+};
+
+const truthy = (v: FormulaValue): boolean => {
+  if (typeof v === "number") return v !== 0;
+  const s = v.toLowerCase();
+  return !(s === "" || s === "0" || s === "null" || s === "false" || s === "no" || s === "ney");
+};
+
+const normalizeOutput = (v: FormulaValue): string => {
+  if (typeof v === "number") return Number.isNaN(v) ? "null" : String(v);
+  return v;
+};
+
+class FormulaParser {
+  tokens: FormulaToken[];
+  pos = 0;
+
+  constructor(tokens: FormulaToken[]) {
+    this.tokens = tokens;
+  }
+
+  peek(): FormulaToken | undefined {
+    return this.tokens[this.pos];
+  }
+
+  next(): FormulaToken {
+    return this.tokens[this.pos++];
+  }
+
+  parseExpression(): FormulaValue {
+    return this.parseComparison();
+  }
+
+  parseComparison(): FormulaValue {
+    let left = this.parseAdditive();
+    while (this.peek()?.type === "op" && [">", "<", ">=", "<=", "==", "!="].includes(this.peek()!.value)) {
+      const op = this.next().value;
+      const right = this.parseAdditive();
+      left = compareValues(left, right, op) ? "true" : "false";
+    }
+    return left;
+  }
+
+  parseAdditive(): FormulaValue {
+    let left = this.parseMultiplicative();
+    while (this.peek()?.type === "op" && ["+", "-"].includes(this.peek()!.value)) {
+      const op = this.next().value;
+      const right = this.parseMultiplicative();
+      left = arithmetic(left, right, op);
+    }
+    return left;
+  }
+
+  parseMultiplicative(): FormulaValue {
+    let left = this.parseUnary();
+    while (this.peek()?.type === "op" && ["*", "/", "%"].includes(this.peek()!.value)) {
+      const op = this.next().value;
+      const right = this.parseUnary();
+      left = arithmetic(left, right, op);
+    }
+    return left;
+  }
+
+  parseUnary(): FormulaValue {
+    if (this.peek()?.type === "op" && this.peek()!.value === "-") {
+      this.next();
+      return -toNumber(this.parseUnary());
+    }
+    return this.parsePrimary();
+  }
+
+  parsePrimary(): FormulaValue {
+    const tok = this.next();
+
+    if (tok.type === "number") return parseFloat(tok.value);
+    if (tok.type === "string") return tok.value;
+
+    if (tok.type === "lparen") {
+      const value = this.parseExpression();
+      this.next();
+      return value;
+    }
+
+    if (tok.type === "ident") {
+      const name = tok.value.toUpperCase();
+
+      if (name === "IF") {
+        this.next();
+        const condition = this.parseExpression();
+        this.next();
+        const thenValue = this.parseExpression();
+        this.next();
+        const elseValue = this.parseExpression();
+        this.next();
+        return truthy(condition) ? thenValue : elseValue;
+      }
+
+      if (name === "CONTAINS") {
+        this.next();
+        const haystack = this.parseExpression();
+        this.next();
+        const needle = this.parseExpression();
+        this.next();
+        return String(haystack).toLowerCase().includes(String(needle).toLowerCase()) ? "true" : "false";
+      }
+
+      return tok.value;
+    }
+
+    return "";
+  }
+}
+
+const evaluateFormula = (
+  formula: string,
+  letterToHeader: Record<string, string>,
+  columnData: ScapColumnData,
+  rowIndex: number
+): string => {
+  const withValues = formula.replace(/([A-Z]+)([0-9]+)/g, (match, letters: string) => {
+    const header = letterToHeader[letters];
+    if (!header) return '"null"';
+    const value = columnData[header]?.[rowIndex] ?? "null";
+    return `"${String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+  });
+
+  try {
+    const parser = new FormulaParser(tokenize(withValues));
+    return normalizeOutput(parser.parseExpression());
+  } catch (error) {
+    console.error("Formula parse error:", formula, error);
+    return "null";
+  }
+};
+
+async function TableComponentScapDatabackEndModify(
+  rows: Record<string, string>[] = [],
+  userId: string = "",
+  baseUrl: string = ""
+): Promise<ScapColumnData> {
+  const text = await fetchDataFromTable(userId, baseUrl);
+  const columnData = TableComponentScapData(text);
+
+  if (rows.length === 0) return columnData;
+
+  const headers = Object.keys(columnData);
+  const rowCount = headers.length > 0 ? columnData[headers[0]].length : 0;
+
+  const letterToHeader: Record<string, string> = {};
+  headers.forEach((header, index) => {
+    letterToHeader[getColumnLetter(index)] = header;
+  });
+
+  const result: ScapColumnData = {};
+
+  rows.forEach((obj) => {
+    const name = Object.keys(obj)[0];
+    if (name === undefined) return;
+    const formula = obj[name];
+
+    result[name] = Array.from({ length: rowCount }, (_, rowIndex) =>
+      evaluateFormula(formula, letterToHeader, columnData, rowIndex)
+    );
+  });
+
+  return result;
+}
+
+  export default function TableComponent() {
 
   const { user } = useUser();
   const pageWebHookUrl = user.WebHook_Url["ApplicationsStatus"];
-  console.log("user.name:", user.name,"user.id:", user.id,"pageWebHookUrl = user.WebHook_Url[\"ApplicationsStatus\"]", pageWebHookUrl);
+
+  const url = "https://n8naurora.duckdns.org/webhook/data-Fetch";
+  console.log(TableComponentScapDatabackEndModify([{"ssd":"A1+B1"},{"score":"IF(C1>85,\"yo\",\"ney\")"},{"hasB":"IF(CONTAINS(A1,\"b\"),\"yes\",\"no\")"},{"asd":"ehh"}], user.id, url));
   const [applications, setApplications] = useState<any[]>([]);
   const [metrics, setMetrics] = useState({
     totalApplications: 0,
@@ -66,6 +352,7 @@ console.log("aaaaa",a);
   });
 
   const handleDataLoaded = useCallback((rows: any[]) => {
+    console.log("Actual Scraped Table Data:", rows);
     let applied = 0;
     let underReview = 0;
     let interviewScheduled = 0;
