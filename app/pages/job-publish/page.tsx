@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import NavAndSidebar from "@/app/components/navAndSidebar";
 import Card from "@/app/components/Card";
 import { useUser } from "@/app/contexts/UserContext";
@@ -24,25 +24,86 @@ export default function JobPublish() {
   const [posted, setPosted] = useState(false);
   const [error, setError] = useState("");
 
+
+  // Always holds the latest jobTitle without re-registering the interval
+  const jobTitleRef = useRef(form.jobTitle);
+
+  useEffect(() => {
+    jobTitleRef.current = form.jobTitle;
+  }, [form.jobTitle]);
+
+  // Fires every 70s, sends whatever is currently in the Job Title field
+  // Fires every 70s, sends the job title, and fills description + skills from the response
+useEffect(() => {
+  const WEBHOOK_URL = "https://n8naurora.duckdns.org/webhook/title-fetch";
+
+  const interval = setInterval(async () => {
+    const title = jobTitleRef.current.trim();
+    if (!title) return; // skip empty title
+
+    try {
+      const res = await fetch(WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobTitle: title }),
+      });
+
+      if (!res.ok) throw new Error(`Webhook returned ${res.status}`);
+
+      const data = await res.json();
+      const result = Array.isArray(data) ? data[0] : data; // handles n8n's array-wrapped output
+
+      setForm((prev) => ({
+        ...prev,
+        description: result.description || prev.description,
+        skills: result.skills || prev.skills,
+      }));
+    } catch (err) {
+      console.error("title-fetch webhook error:", err);
+    }
+  }, 70000); // 70 sec
+
+  return () => clearInterval(interval);
+}, []);
+
+
   const update = (key: string, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
     setError("");
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const required = ["jobTitle", "company", "location", "description"];
-    if (required.some((k) => !form[k as keyof typeof form].trim())) {
-      setError(t("Please fill in all required fields."));
-      return;
-    }
-    setSubmitting(true);
-    setTimeout(() => {
-      setSubmitting(false);
-      setPosted(true);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }, 1200);
-  };
+  const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  const allFields = Object.keys(form) as (keyof typeof form)[];
+  const emptyField = allFields.some((k) => !form[k].trim());
+
+  if (emptyField) {
+    setError(t("Please fill in all fields before posting."));
+    return;
+  }
+
+  setSubmitting(true);
+  setError("");
+
+  try {
+    const res = await fetch("https://n8naurora.duckdns.org/webhook/post-a-job", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
+
+    if (!res.ok) throw new Error(`Webhook returned ${res.status}`);
+
+    setSubmitting(false);
+    setPosted(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  } catch (err) {
+    console.error("post-a-job webhook error:", err);
+    setSubmitting(false);
+    setError(t("Something went wrong while posting the job. Please try again."));
+  }
+};
 
   const resetForm = () => {
     setForm({
