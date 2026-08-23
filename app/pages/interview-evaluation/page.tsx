@@ -407,27 +407,6 @@ export default function Interview_Prep_AI() {
         </FeatureCard>
 
         <FeatureCard
-          number={2}
-          title={t("Job Description")}
-          subtitle={t("Paste the job description to focus your interview practice.")}
-          bodyClassName="flex flex-col"
-        >
-          <div className="relative flex-1">
-            <textarea
-              value={jobDescription}
-              onChange={(e) => {
-                setJobDescription(e.target.value);
-                setInterviewJobDescription(e.target.value);
-              }}
-              placeholder={t("Paste job description here...")}
-              maxLength={5000}
-              className="w-full h-full min-h-[200px] text-sm text-slate-800 rounded-xl border border-slate-200 p-3 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 placeholder:text-slate-400"
-            />
-            <span className="absolute bottom-3 right-3 text-[11px] text-slate-400">{charCount} / 5000</span>
-          </div>
-        </FeatureCard>
-
-        <FeatureCard
           number={3}
           title={t("Start Interview")}
           subtitle={t("Click below to begin your AI-powered mock interview.")}
