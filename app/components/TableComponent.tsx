@@ -3,7 +3,7 @@ import Link from "next/link";
 import NavAndSidebar from "@/app/components/navAndSidebar";
 import GoogleSheetReader from "@/app/components/GoogleSheetReader";
 import InteractiveBadge from "@/app/components/IneractiveBadge";
-import { useState, useCallback } from "react";
+import { useState, useCallback, ReactNode } from "react";
 import { useUser } from "@/app/contexts/UserContext";
 import Card from "@/app/components/FeatureCard";
 import { PiSuitcaseSimpleFill } from "react-icons/pi";
@@ -334,7 +334,7 @@ async function TableComponentScapDatabackEndModify(
   return result;
 }
 
-  export default function TableComponent() {
+  export default function TableComponent({ children }: { children?: ReactNode }) {
 
   const { user } = useUser();
   const pageWebHookUrl = user.WebHook_Url["ApplicationsStatus"];
@@ -451,6 +451,9 @@ async function TableComponentScapDatabackEndModify(
         >
           <div className="w-full bg-white border border-slate-100 rounded-2xl shadow-xs overflow-hidden">
             <div className="overflow-x-auto">
+              {children ? (
+                <>{children}</>
+              ) : (
               <table className="w-full text-left border-collapse min-w-[980px]">
                 <thead>
                   <tr className="border-b border-slate-50 text-[11px] font-semibold text-slate-500 bg-slate-50/30">
@@ -513,6 +516,7 @@ async function TableComponentScapDatabackEndModify(
                   })}
                 </tbody>
               </table>
+              )}
             </div>
           </div>
         </Card>

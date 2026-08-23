@@ -15,6 +15,21 @@ export default function about() {
         </Link>
       </div>
       <div className="mt-6">
+        <Link href="/pages/job-publish" className="text-blue-400 hover:underline text-sm sm:text-base">
+          job-publish
+        </Link>
+      </div>
+      <div className="mt-6">
+        <Link href="/pages/post-approval" className="text-blue-400 hover:underline text-sm sm:text-base">
+          post-approval
+        </Link>
+      </div>
+      <div className="mt-6">
+        <Link href="/pages/shortlisted-candidates" className="text-blue-400 hover:underline text-sm sm:text-base">
+          shortlisted-candidates
+        </Link>
+      </div>
+      <div className="mt-6">
         <Link href="/pages/candidate-scoring" className="text-blue-400 hover:underline text-sm sm:text-base">
           candidate-scoring
         </Link>
@@ -25,18 +40,8 @@ export default function about() {
         </Link>
       </div>
       <div className="mt-6">
-        <Link href="/pages/job-postings" className="text-blue-400 hover:underline text-sm sm:text-base">
-          job-postings
-        </Link>
-      </div>
-      <div className="mt-6">
         <Link href="/pages/login" className="text-blue-400 hover:underline text-sm sm:text-base">
           login
-        </Link>
-      </div>
-      <div className="mt-6">
-        <Link href="/pages/shortlisted-candidates" className="text-blue-400 hover:underline text-sm sm:text-base">
-          shortlisted-candidates
         </Link>
       </div>
       <div className="mt-6">
