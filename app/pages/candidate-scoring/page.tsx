@@ -200,7 +200,7 @@ user={[
       ]}
       sidebarHeight="h-screen"
     >
-      <TableComponent />
+      <TableComponent title="Candidate Scoring" />
       
     </NavAndSidebar>
   );

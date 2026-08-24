@@ -334,7 +334,7 @@ async function TableComponentScapDatabackEndModify(
   return result;
 }
 
-  export default function TableComponent({ children }: { children?: ReactNode }) {
+  export default function TableComponent({ children, title }: { children?: ReactNode; title: string }) {
 
   const { user } = useUser();
   const pageWebHookUrl = user.WebHook_Url["ApplicationsStatus"];
@@ -424,7 +424,10 @@ async function TableComponentScapDatabackEndModify(
           width="100%"
           header={
             <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 w-full py-1 relative">
-              <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+              <h2 className="text-sm font-bold text-slate-800 tracking-tight whitespace-nowrap">
+                {title}
+              </h2>
+              <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto lg:justify-end">
                 <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-1.5 w-full sm:w-[280px] shadow-xs focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100 transition-all">
                   <svg className="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.603 10.601z" />
