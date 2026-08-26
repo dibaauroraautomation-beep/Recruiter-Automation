@@ -23,13 +23,17 @@ export default function JobPublish() {
   const [submitting, setSubmitting] = useState(false);
   const [posted, setPosted] = useState(false);
   const [error, setError] = useState("");
+  const [aiSubmitting, setAiSubmitting] = useState(false);
+  const [aiError, setAiError] = useState("");
+  const [aiSuccess, setAiSuccess] = useState("");
 
   const update = (key: string, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
     setError("");
+    setAiSuccess("");
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const required = ["jobTitle", "company", "location", "description"];
     if (required.some((k) => !form[k as keyof typeof form].trim())) {
@@ -37,11 +41,80 @@ export default function JobPublish() {
       return;
     }
     setSubmitting(true);
-    setTimeout(() => {
-      setSubmitting(false);
+    setError("");
+    try {
+      const res = await fetch(
+        // "https://n8naurora.duckdns.org/webhook-test/title-fetch",
+        // "https://n8naurora.duckdns.org/webhook/job-info",
+        "https://n8naurora.duckdns.org/webhook-test/post-a-job",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...form,
+            email: localStorage.getItem("userEmail") ?? "",
+            timestamp: new Date().toISOString(),
+          }),
+        }
+      );
+      if (!res.ok) throw new Error(`Request failed with status ${res.status}`);
       setPosted(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
-    }, 1200);
+    } catch {
+      setError(t("Something went wrong while posting the job. Please try again."));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  const dataFillUpByAI = async () => {
+    const hasAnyField = [
+      "jobTitle",
+      "company",
+      "location",
+      "salary",
+      "description",
+      "skills",
+      "education",
+    ].some((k) => form[k as keyof typeof form].trim());
+
+    if (!hasAnyField) {
+      setAiError(t("Please fill in at least one field so AI can complete the rest."));
+      return;
+    }
+
+    setAiSubmitting(true);
+    setAiError("");
+    setAiSuccess("");
+    try {
+      const params = new URLSearchParams({
+        ...form,
+        email: localStorage.getItem("userEmail") ?? "",
+        timestamp: new Date().toISOString(),
+      });
+      const res = await fetch(
+        `https://n8naurora.duckdns.org/webhook-test/dataFillUpByAI?${params.toString()}`,
+        { method: "GET" }
+      );
+      if (!res.ok) throw new Error(`Request failed with status ${res.status}`);
+      const data = await res.json().catch(() => null);
+      const payload = Array.isArray(data) ? data[0] : data;
+      if (payload && typeof payload === "object") {
+        setForm((prev) => {
+          const next = { ...prev };
+          (Object.keys(next) as (keyof typeof next)[]).forEach((key) => {
+            if (next[key].trim()) return;
+            const val = (payload as Record<string, unknown>)[key];
+            if (typeof val === "string" && val.trim()) next[key] = val;
+          });
+          return next;
+        });
+      }
+      setAiSuccess(t("AI filled in the missing fields for you."));
+    } catch {
+      setAiError(t("Something went wrong while filling data with AI. Please try again."));
+    } finally {
+      setAiSubmitting(false);
+    }
   };
 
   const resetForm = () => {
@@ -220,15 +293,32 @@ export default function JobPublish() {
           </div>
         </div>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {(error || aiError || aiSuccess) && (
+          <p className={`text-sm ${error || aiError ? "text-red-600" : "text-green-600"}`}>
+            {error || aiError || aiSuccess}
+          </p>
+        )}
 
-        <button
-          type="submit"
-          disabled={submitting}
-          className="w-full px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-blue-600 rounded-xl hover:from-indigo-700 hover:to-blue-700 transition shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
-        >
-          {submitting ? t("Posting\u2026") : t("Post Job")}
-        </button>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button
+            type="button"
+            onClick={dataFillUpByAI}
+            disabled={aiSubmitting}
+            className="w-full px-6 py-3 text-sm font-semibold text-indigo-700 bg-white border-2 border-indigo-200 rounded-xl hover:bg-indigo-50 hover:border-indigo-300 transition shadow-sm inline-flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.091 3.091ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z" />
+            </svg>
+            {aiSubmitting ? t("Filling\u2026") : t("Fill Data by AI")}
+          </button>
+          <button
+            type="submit"
+            disabled={submitting}
+            className="w-full px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-blue-600 rounded-xl hover:from-indigo-700 hover:to-blue-700 transition shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {submitting ? t("Posting\u2026") : t("Post Job")}
+          </button>
+        </div>
       </form>
     </Card>
   );

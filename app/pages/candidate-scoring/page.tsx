@@ -200,7 +200,61 @@ user={[
       ]}
       sidebarHeight="h-screen"
     >
-      <TableComponent title="Candidate Scoring" />
+      <TableComponent
+        title="Candidate Scoring"
+        rows={[]}
+        baseUrl="https://n8naurora.duckdns.org/webhook/data-Fetch"
+        userId="gh"
+        debug
+        dataBaseId="candidate info"
+      >
+        {(datas) => {
+          const headers = datas ? Object.keys(datas) : [];
+          const rowCount =
+            headers.length > 0 && datas ? datas[headers[0]].length : 0;
+
+          return (
+            <table className="w-full text-left border-collapse min-w-[980px]">
+              <thead>
+                <tr className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 bg-slate-50/70">
+                  {headers.map((header) => (
+                    <th key={header} className="py-3.5 px-5 whitespace-nowrap">
+                      {header}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {rowCount === 0 && (
+                  <tr>
+                    <td
+                      colSpan={Math.max(headers.length, 1)}
+                      className="py-10 text-center text-xs text-slate-400"
+                    >
+                      Loading…
+                    </td>
+                  </tr>
+                )}
+                {Array.from({ length: rowCount }, (_, i) => (
+                  <tr
+                    key={i}
+                    className="group transition-colors hover:bg-slate-50/60"
+                  >
+                    {headers.map((header) => (
+                      <td
+                        key={header}
+                        className="py-4 px-5 text-xs text-slate-700"
+                      >
+                        {datas?.[header]?.[i] ?? ""}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          );
+        }}
+      </TableComponent>
       
     </NavAndSidebar>
   );

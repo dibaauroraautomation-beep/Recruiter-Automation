@@ -1,62 +1,102 @@
 "use client";
 import NavAndSidebar from "@/app/components/navAndSidebar";
-import TableComponent from "@/app/components/TableComponent";
+import TableComponent, { type TableData } from "@/app/components/TableComponent";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useT } from "@/app/contexts/LanguageContext";
 import { useUser } from "@/app/contexts/UserContext";
 
 type Candidate = {
   id: number;
+  rank: number;
   name: string;
   currentRole: string;
-  score: number;
+  score: number | null;
   skills: string[];
 };
 
-const sampleCandidates: Candidate[] = [
-  {
-    id: 1,
-    name: "Lanry Delth",
-    currentRole: "Applied Manager",
-    score: 83,
-    skills: ["Project Management", "Java"],
-  },
-  {
-    id: 2,
-    name: "Karin Dioen",
-    currentRole: "Engineering",
-    score: 85,
-    skills: ["Project Management", "Java", "Python"],
-  },
-  {
-    id: 3,
-    name: "Rachel Ambers",
-    currentRole: "Data Analyst",
-    score: 79,
-    skills: ["SQL", "Power BI", "Python"],
-  },
-  {
-    id: 4,
-    name: "Tom Becker",
-    currentRole: "Backend Developer",
-    score: 85,
-    skills: ["Node.js", "PostgreSQL", "Docker"],
-  },
-];
-
 export default function Dashboard() {
   const WebHook_Url = "sdfgh";
+  const filterScore:number = 50;
   const t = useT();
   const { user } = useUser();
   console.log("user.WebHook_Ur:", user.WebHook_Url["Dashboard"]);
 
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [datas, setDatas] = useState<TableData | null>(null);
 
-  const allSelected = selectedIds.length === sampleCandidates.length;
+  const candidates: Candidate[] = useMemo(() => {
+    if (!datas) return [];
+
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const keys = Object.keys(datas);
+    const col = (target: string) => {
+      const key = keys.find((k) => norm(k) === norm(target));
+      return key ? (datas[key] ?? []) : [];
+    };
+
+    const parseSkills = (raw?: string): string[] => {
+      if (!raw || raw === "null") return [];
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed?.matched_skills)) {
+          return parsed.matched_skills.map(String);
+        }
+      } catch {
+        // not JSON, fall through to comma splitting
+      }
+      return raw.split(",").map((s) => s.trim()).filter(Boolean);
+    };
+
+    const nameCol = col("CandidateName");
+    const roleCol = col("CurrentRole");
+    const scoreCol = col("Score");
+    const skillsCol = col("Skills");
+    const rankCol = col("Rank");
+
+    const rowCount = Math.max(
+      nameCol.length,
+      roleCol.length,
+      scoreCol.length,
+      skillsCol.length,
+      rankCol.length,
+    );
+
+    if (rowCount === 0 && keys.length > 0) {
+      console.warn(
+        "[shortlisted-candidates] No matching candidate columns found. Available columns:",
+        keys,
+      );
+      return [];
+    }
+
+    return Array.from({ length: rowCount }, (_, i) => ({
+      id: i + 1,
+      name: nameCol[i] && nameCol[i] !== "null" ? nameCol[i] : "Unknown",
+      currentRole:
+        roleCol[i] && roleCol[i] !== "null" ? roleCol[i] : "Unknown",
+      score:
+        scoreCol[i] !== undefined &&
+        scoreCol[i] !== "null" &&
+        Number.isFinite(parseFloat(scoreCol[i]))
+          ? parseFloat(scoreCol[i])
+          : null,
+      skills: parseSkills(skillsCol[i]),
+      rank:
+        rankCol[i] !== undefined &&
+        Number.isFinite(parseFloat(rankCol[i]))
+          ? parseFloat(rankCol[i])
+          : i + 1,
+    }))
+      .filter((c) => c.score !== null && c.score > filterScore)
+      .sort((a, b) => a.rank - b.rank);
+  }, [datas]);
+
+  const allSelected =
+    candidates.length > 0 && selectedIds.length === candidates.length;
 
   const toggleAll = () =>
-    setSelectedIds(allSelected ? [] : sampleCandidates.map((c) => c.id));
+    setSelectedIds(allSelected ? [] : candidates.map((c) => c.id));
 
   const toggleOne = (id: number) =>
     setSelectedIds((prev) =>
@@ -92,7 +132,23 @@ export default function Dashboard() {
           user.WebHook_Url["Dashboard"],
         ]}
       >
-        <TableComponent title="Shortlisted Candidates">
+        <TableComponent
+          title={`Candidates with scores > ${filterScore}%`}
+          rows={[
+            { Rank: "RANK(I,I,1)" },
+            { CandidateName: "" },
+            { CurrentRole: "" },
+            { Score: `IF(I>${filterScore},I)` },
+            { Skills: "" },
+            { InterviewInvitation: "" },
+          ]}
+          baseUrl="https://n8naurora.duckdns.org/webhook/dataFetch"
+          // baseUrl="https://n8naurora.duckdns.org/webhook-test/dataFetch"
+          userId="gh"
+          onData={setDatas}
+          debug={false}
+          dataBaseId="candidate info"
+        >
           <table className="w-full text-left border-collapse min-w-[980px]">
             <thead>
               <tr className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 bg-slate-50/70">
@@ -116,14 +172,24 @@ export default function Dashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {sampleCandidates.map((candidate, index) => (
+              {candidates.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={7}
+                    className="py-10 text-center text-xs text-slate-400"
+                  >
+                    Loading candidates…
+                  </td>
+                </tr>
+              )}
+              {candidates.map((candidate) => (
                 <tr
                   key={candidate.id}
                   className="group transition-colors hover:bg-slate-50/60"
                 >
                   <td className="py-4 px-5">
                     <div className="w-7 h-7 rounded-lg bg-slate-800 flex items-center justify-center text-white text-xs font-bold shadow-sm">
-                      {index + 1}
+                      {candidate.rank}
                     </div>
                   </td>
                   <td className="py-4 px-5">
@@ -137,17 +203,21 @@ export default function Dashboard() {
                     </span>
                   </td>
                   <td className="py-4 px-5">
-                    <div className="flex items-center gap-2">
-                      <div className="w-16 h-1.5 rounded-full bg-slate-200 overflow-hidden shrink-0">
-                        <div
-                          className="h-full rounded-full bg-teal-500"
-                          style={{ width: `${candidate.score}%` }}
-                        />
+                    {candidate.score === null ? (
+                      <span className="text-xs text-slate-300">—</span>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <div className="w-16 h-1.5 rounded-full bg-slate-200 overflow-hidden shrink-0">
+                          <div
+                            className="h-full rounded-full bg-teal-500"
+                            style={{ width: `${candidate.score}%` }}
+                          />
+                        </div>
+                        <span className="text-xs font-semibold text-slate-700">
+                          {candidate.score}%
+                        </span>
                       </div>
-                      <span className="text-xs font-semibold text-slate-700">
-                        {candidate.score}%
-                      </span>
-                    </div>
+                    )}
                   </td>
                   <td className="py-4 px-5">
                     <span className="text-xs text-slate-400 font-medium leading-relaxed">

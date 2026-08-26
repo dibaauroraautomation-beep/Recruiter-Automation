@@ -4,7 +4,7 @@ import NavAndSidebar from "@/app/components/navAndSidebar";
 import Card from "@/app/components/Card";
 import { useUser } from "@/app/contexts/UserContext";
 import { useLanguage } from "@/app/contexts/LanguageContext";
-import TableComponent from "@/app/components/TableComponent";
+import TableComponent, { type TableData }  from "@/app/components/TableComponent";
 import {
   FaCheckCircle,
   FaHourglassHalf,
@@ -109,6 +109,7 @@ export default function PostApproval() {
   const { t } = useLanguage();
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [jobs, setJobs] = useState<JobPost[]>(sampleJobs);
+  const [datas, setDatas] = useState<TableData | null>(null);
 
   const toggleExpand = (id: number) =>
     setExpandedId((cur) => (cur === id ? null : id));
@@ -135,11 +136,26 @@ export default function PostApproval() {
         user.WebHook_Url["ApplicationsStatus"],
       ]}
     >
-      <TableComponent title="Post Approval">
+      <TableComponent
+                title="Post Approval"
+                rows={[
+                  { JobTitle: "A" },
+                  { DateApplied: "I" },
+                  { Status: "G" },
+                  
+                ]}
+                baseUrl="https://n8naurora.duckdns.org/webhook/dataFetch"
+                // baseUrl="https://n8naurora.duckdns.org/webhook-test/dataFetch"
+                userId="gh"
+                onData={setDatas}
+                debug={false}
+                dataBaseId="job link"
+              >
+                
         <table className="w-full text-left border-collapse min-w-[720px]">
           <thead>
             <tr className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 bg-slate-50/70">
-              <th className="py-3.5 px-5 rounded-tl-xl">candidate name</th>
+              <th className="py-3.5 px-5 rounded-tl-xl">Job Title</th>
               <th className="py-3.5 px-5">applied role</th>
               <th className="py-3.5 px-5">date applied</th>
               <th className="py-3.5 px-5">Status</th>
