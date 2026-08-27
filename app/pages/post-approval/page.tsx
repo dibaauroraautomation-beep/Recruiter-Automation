@@ -4,7 +4,7 @@ import NavAndSidebar from "@/app/components/navAndSidebar";
 import Card from "@/app/components/Card";
 import { useUser } from "@/app/contexts/UserContext";
 import { useLanguage } from "@/app/contexts/LanguageContext";
-import TableComponent from "@/app/components/TableComponent";
+import TableComponent, { type TableData }  from "@/app/components/TableComponent";
 import {
   FaCheckCircle,
   FaHourglassHalf,
@@ -14,6 +14,7 @@ import {
 
 type JobPost = {
   id: number;
+  name: string;
   title: string;
   description: string;
   date: string;
@@ -23,6 +24,7 @@ type JobPost = {
 const sampleJobs: JobPost[] = [
   {
     id: 1,
+    name: "Ayesha Rahman",
     title: "Senior Software Engineer",
     description: "Building scalable backend services with Node.js and TypeScript...",
     date: "2026-08-18",
@@ -30,6 +32,7 @@ const sampleJobs: JobPost[] = [
   },
   {
     id: 2,
+    name: "Daniel Kim",
     title: "Product Designer",
     description: "Own end-to-end design for our candidate-facing web and mobile experiences...",
     date: "2026-08-19",
@@ -37,6 +40,7 @@ const sampleJobs: JobPost[] = [
   },
   {
     id: 3,
+    name: "Maria Gomez",
     title: "DevOps Engineer",
     description: "Automate cloud infrastructure, CI/CD pipelines, and monitor production...",
     date: "2026-08-20",
@@ -44,6 +48,7 @@ const sampleJobs: JobPost[] = [
   },
   {
     id: 4,
+    name: "Omar Farooq",
     title: "Data Scientist",
     description: "Build ML models to improve candidate-job matching and hiring insights...",
     date: "2026-08-20",
@@ -51,6 +56,7 @@ const sampleJobs: JobPost[] = [
   },
   {
     id: 5,
+    name: "Priya Sharma",
     title: "Frontend Developer",
     description: "Craft pixel-perfect, accessible React UIs with a focus on performance...",
     date: "2026-08-17",
@@ -58,6 +64,7 @@ const sampleJobs: JobPost[] = [
   },
   {
     id: 6,
+    name: "Liam O'Connor",
     title: "QA Automation Engineer",
     description: "Design and maintain end-to-end test suites across web and mobile...",
     date: "2026-08-16",
@@ -65,6 +72,7 @@ const sampleJobs: JobPost[] = [
   },
   {
     id: 7,
+    name: "Sofia Rossi",
     title: "HR Business Partner",
     description: "Align talent strategy with business goals and support people operations...",
     date: "2026-08-21",
@@ -72,6 +80,7 @@ const sampleJobs: JobPost[] = [
   },
   {
     id: 8,
+    name: "Ethan Walker",
     title: "Technical Writer",
     description: "Write clear documentation, onboarding guides, and API references...",
     date: "2026-08-21",
@@ -79,6 +88,7 @@ const sampleJobs: JobPost[] = [
   },
   {
     id: 9,
+    name: "Nadia Hossain",
     title: "Backend Engineer",
     description: "Design REST APIs and event-driven services in Go and PostgreSQL...",
     date: "2026-08-15",
@@ -86,6 +96,7 @@ const sampleJobs: JobPost[] = [
   },
   {
     id: 10,
+    name: "James Carter",
     title: "UX Researcher",
     description: "Run user interviews, usability tests, and synthesize actionable insights...",
     date: "2026-08-22",
@@ -98,6 +109,7 @@ export default function PostApproval() {
   const { t } = useLanguage();
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [jobs, setJobs] = useState<JobPost[]>(sampleJobs);
+  const [datas, setDatas] = useState<TableData | null>(null);
 
   const toggleExpand = (id: number) =>
     setExpandedId((cur) => (cur === id ? null : id));
@@ -124,11 +136,26 @@ export default function PostApproval() {
         user.WebHook_Url["ApplicationsStatus"],
       ]}
     >
-      <TableComponent>
+      <TableComponent
+                title="Post Approval"
+                rows={[
+                  { JobTitle: "A" },
+                  { DateApplied: "I" },
+                  { Status: "G" },
+                  
+                ]}
+                baseUrl="https://n8naurora.duckdns.org/webhook/dataFetch"
+                // baseUrl="https://n8naurora.duckdns.org/webhook-test/dataFetch"
+                userId="gh"
+                onData={setDatas}
+                debug={false}
+                dataBaseId="job link"
+              >
+                
         <table className="w-full text-left border-collapse min-w-[720px]">
           <thead>
             <tr className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 bg-slate-50/70">
-              <th className="py-3.5 px-5 rounded-tl-xl">candidate name</th>
+              <th className="py-3.5 px-5 rounded-tl-xl">Job Title</th>
               <th className="py-3.5 px-5">applied role</th>
               <th className="py-3.5 px-5">date applied</th>
               <th className="py-3.5 px-5">Status</th>
@@ -145,11 +172,11 @@ export default function PostApproval() {
                     <td className="py-4 px-5">
                       <div className="flex items-center gap-3.5 min-w-0">
                         <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shrink-0 text-white font-bold text-sm shadow-sm shadow-indigo-200">
-                          {job.title.slice(0, 2).toUpperCase()}
+                          {job.name.slice(0, 2).toUpperCase()}
                         </div>
                         <div className="flex flex-col gap-0.5 min-w-0">
                           <span className="text-sm font-bold text-slate-800 tracking-tight truncate">
-                            {job.title}
+                            {job.name}
                           </span>
                           <span className="text-xs text-slate-400 font-medium truncate">
                             {job.description}
@@ -159,6 +186,11 @@ export default function PostApproval() {
                     </td>
                     <td className="py-4 px-5">
                       <div className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 bg-slate-100/80 rounded-lg px-3 py-1.5 whitespace-nowrap">
+                        {job.title}
+                      </div>
+                    </td>
+                    <td className="py-4 px-5">
+                      <div className="text-[11px] whitespace-nowrap font-semibold text-slate-700">
                         {job.date}
                       </div>
                     </td>
@@ -201,7 +233,7 @@ export default function PostApproval() {
                   </tr>
                   {isExpanded && (
                     <tr className="bg-slate-50/50">
-                      <td colSpan={4} className="py-4 px-5">
+                      <td colSpan={5} className="py-4 px-5">
                         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                           <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-1.5">
                             Description
