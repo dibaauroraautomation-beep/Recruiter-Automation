@@ -45,8 +45,8 @@ export default function JobPublish() {
     try {
       const res = await fetch(
         // "https://n8naurora.duckdns.org/webhook-test/title-fetch",
-        // "https://n8naurora.duckdns.org/webhook/job-info",
-        "https://n8naurora.duckdns.org/webhook-test/post-a-job",
+        "https://n8naurora.duckdns.org/webhook/job-info",
+        // "https://n8naurora.duckdns.org/webhook-test/post-a-job",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -92,11 +92,18 @@ export default function JobPublish() {
         timestamp: new Date().toISOString(),
       });
       const res = await fetch(
-        `https://n8naurora.duckdns.org/webhook-test/dataFillUpByAI?${params.toString()}`,
+        // `https://n8naurora.duckdns.org/webhook-test/dataFillUpByAI?${params.toString()}`,
+        `https://n8naurora.duckdns.org/webhook/dataFillUpByAI?${params.toString()}`,
         { method: "GET" }
       );
       if (!res.ok) throw new Error(`Request failed with status ${res.status}`);
-      const data = await res.json().catch(() => null);
+      const raw = await res.text();
+      let data: unknown = null;
+      try {
+        data = raw ? JSON.parse(raw) : null;
+      } catch {
+        data = null;
+      }
       const payload = Array.isArray(data) ? data[0] : data;
       if (payload && typeof payload === "object") {
         setForm((prev) => {
@@ -108,8 +115,10 @@ export default function JobPublish() {
           });
           return next;
         });
+        setAiSuccess(t("AI filled in the missing fields for you."));
+      } else {
+        setAiError(t("The AI service didn't return usable data. Check the n8n webhook response."));
       }
-      setAiSuccess(t("AI filled in the missing fields for you."));
     } catch {
       setAiError(t("Something went wrong while filling data with AI. Please try again."));
     } finally {
@@ -148,6 +157,24 @@ export default function JobPublish() {
     t("Senior"),
     t("Lead"),
     t("Manager"),
+  ];
+
+  const educationOptions = [
+    t("No Formal Education"),
+    t("High School Diploma / GED"),
+    t("Vocational / Trade Certificate"),
+    t("Some College"),
+    t("Associate's Degree"),
+    t("Diploma / Postgraduate Diploma"),
+    t("Bachelor's Degree"),
+    t("Postgraduate Certificate"),
+    t("Master's Degree"),
+    t("MBA"),
+    t("Juris Doctor (JD)"),
+    t("Doctor of Medicine (MD)"),
+    t("PhD / Doctorate"),
+    t("Professional Certification"),
+    t("Not Required"),
   ];
 
   const formPanel = posted ? (
@@ -283,13 +310,18 @@ export default function JobPublish() {
           </div>
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-1.5">{t("Education")}</label>
-            <input
-              type="text"
+            <select
               value={form.education}
               onChange={(e) => update("education", e.target.value)}
-              placeholder={t("e.g. Bachelor\u2019s in Computer Science")}
               className={inputClass}
-            />
+            >
+              <option value="">{t("Select education level")}</option>
+              {educationOptions.map((opt, i) => (
+                <option key={i} value={opt}>
+                  {opt}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 

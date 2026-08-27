@@ -209,6 +209,7 @@ user={[
         dataBaseId="candidate info"
       >
         {(datas) => {
+          console.log(datas)
           const headers = datas ? Object.keys(datas) : [];
           const rowCount =
             headers.length > 0 && datas ? datas[headers[0]].length : 0;
