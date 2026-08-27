@@ -16,6 +16,7 @@ type Candidate = {
 };
 
 export default function Dashboard() {
+  const eamil="diba-aurora-automation@outlook.com"
   const WebHook_Url = "sdfgh";
   const filterScore:number = 50;
   const t = useT();
