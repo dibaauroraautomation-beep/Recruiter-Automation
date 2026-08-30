@@ -1,27 +1,34 @@
 "use client";
-import Link from "next/link";
 import NavAndSidebar from "@/app/components/navAndSidebar";
 import GoogleSheetReader from "@/app/components/GoogleSheetReader";
 import InteractiveBadge from "@/app/components/IneractiveBadge";
 import { useState, useCallback, useEffect, ReactNode } from "react";
 import { useUser } from "@/app/contexts/UserContext";
 import Card from "@/app/components/FeatureCard";
-import { PiSuitcaseSimpleFill } from "react-icons/pi";
-import { FaLocationArrow } from "react-icons/fa";
-import { FaClock } from "react-icons/fa6";
-import { RiCalendarScheduleFill } from "react-icons/ri";
-import { IoGiftSharp } from "react-icons/io5";
-import { MdCancel } from "react-icons/md";
+
+// ===== WEBHOOK REGISTRY =====
+export const WEBHOOKS = {
+  dataFetch: "https://n8naurora.duckdns.org/webhook/dataFetch",
+  candidateData: "https://n8naurora.duckdns.org/webhook/candidate-data",
+} as const;
+
+export type WebhookKey = keyof typeof WEBHOOKS;
+
+// accepts a registry key ("candidateData") or a full URL
+const resolveBaseUrl = (input: string): string => {
+  if (!input) return WEBHOOKS.dataFetch;
+  if (/^https?:\/\//i.test(input)) return input;
+  return WEBHOOKS[input as WebhookKey] ?? WEBHOOKS.dataFetch;
+};
 
 const fetchDataFromTable = async (
   userId: string = "",
-  baseUrl: string = "https://n8naurora.duckdns.org/webhook/dataFetch",
-  // baseUrl: string = "https://n8naurora.duckdns.org/webhook-test/dataFetch",
+  baseUrl: string = WEBHOOKS.dataFetch,
   dataBaseId: string = "",
 ): Promise<string> => {
-  console.log("geting datas:", userId);
-
-  const targetUrl = `${baseUrl}?userId=${userId}&dataBaseId=${dataBaseId}`;
+  const targetUrl =
+    `${resolveBaseUrl(baseUrl)}?userId=${encodeURIComponent(userId)}` +
+    `&dataBaseId=${encodeURIComponent(dataBaseId)}`;
 
   const response = await fetch(targetUrl, { method: "GET" });
   if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
@@ -39,6 +46,16 @@ export type { ScapColumnData as TableData };
 const tableDataCache = new Map<string, ScapColumnData>();
 const inflightRequests = new Map<string, Promise<ScapColumnData>>();
 
+// Clears cached table data so the next mount refetches.
+// Call with no argument to clear everything.
+export function invalidateTableCache(cacheKey?: string) {
+  if (cacheKey) {
+    tableDataCache.delete(cacheKey);
+    return;
+  }
+  tableDataCache.clear();
+}
+
 function extractRows(parsed: unknown): Record<string, unknown>[] {
   if (Array.isArray(parsed)) {
     if (parsed.length === 0) return [];
@@ -55,8 +72,7 @@ function extractRows(parsed: unknown): Record<string, unknown>[] {
       )
     ) {
       return parsed.map(
-        (item) =>
-          (item as { json: Record<string, unknown> }).json ?? {},
+        (item) => (item as { json: Record<string, unknown> }).json ?? {},
       );
     }
 
@@ -413,7 +429,13 @@ class FormulaParser {
 }
 
 // Identifiers that must never be treated as column references
-const FORMULA_RESERVED_WORDS = new Set(["IF", "CONTAINS", "TRUE", "FALSE", "RANK"]);
+const FORMULA_RESERVED_WORDS = new Set([
+  "IF",
+  "CONTAINS",
+  "TRUE",
+  "FALSE",
+  "RANK",
+]);
 
 const escapeFormulaValue = (value: string): string =>
   value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
@@ -441,8 +463,7 @@ const evaluateFormula = (
     (_match, cellRef: string, rangeRef?: string, orderArg?: string) => {
       const current = parseFloat(resolveRefValue(cellRef));
       if (!Number.isFinite(current)) return '"null"';
-      const header =
-        letterToHeader[(rangeRef ?? cellRef).trim().toUpperCase()];
+      const header = letterToHeader[(rangeRef ?? cellRef).trim().toUpperCase()];
       const pool = (header ? (columnData[header] ?? []) : [])
         .map((v) => parseFloat(v))
         .filter((v) => Number.isFinite(v));
@@ -484,19 +505,13 @@ async function TableComponentScapDatabackEndModify(
   baseUrl: string = "",
   dataBaseId: string = "",
 ): Promise<ScapColumnData> {
-  const text = await fetchDataFromTable(userId, baseUrl,dataBaseId);
+  const text = await fetchDataFromTable(userId, baseUrl, dataBaseId);
   const columnData = TableComponentScapData(text);
 
   if (rows.length === 0) return columnData;
 
-  // No non-empty value provided in any row -> return the actual data object as-is
-  const hasFormulaEntry = rows.some(
-    (obj) => String(Object.values(obj)[0] ?? "").trim() !== "",
-  );
-  if (!hasFormulaEntry) return columnData;
-
   const headers = Object.keys(columnData);
-  const rowCount = headers.length > 0 ? columnData[headers[0]].length : 0;
+  const rowCount = headers.length > 0 ? (columnData[headers[0]]?.length ?? 0) : 0;
 
   const letterToHeader: Record<string, string> = {};
   headers.forEach((header, index) => {
@@ -511,12 +526,14 @@ async function TableComponentScapDatabackEndModify(
 
   // Friendly names -> possible real sheet headers
   const ALIASES: Record<string, string[]> = {
-    candidatename: ["applicantname", "candidate", "name"],
+    candidatename: ["applicantname", "candidate", "name", "fullname"],
     currentrole: ["role", "position", "jobtitle", "appliedrole"],
     score: ["atsscore", "candidatescrore", "candidatescore"],
     skills: ["skillsneeded", "skill", "skillset"],
     interviewinvitation: ["interviewstatus", "invitationstatus", "status"],
     rank: ["rank", "sno", "slno", "serialnumber"],
+    postcontent: ["postdescription", "description", "jobdescription"],
+    formtitle: ["title", "form"],
   };
 
   const resolveHeader = (key: string): string | undefined => {
@@ -535,7 +552,8 @@ async function TableComponentScapDatabackEndModify(
     const formula = (obj[name] ?? "").trim();
 
     // Empty formula = select the raw column from the fetched data as-is
-    // (resolved through aliases + case/space-insensitive matching)
+    // (resolved through aliases + case/space-insensitive matching).
+    // This is order-independent, unlike letter formulas.
     if (!formula) {
       const resolved = resolveHeader(name);
       if (resolved) {
@@ -545,16 +563,16 @@ async function TableComponentScapDatabackEndModify(
 
       // Rank has no source column -> generate sequential numbers
       if (norm(name) === "rank") {
-        result[name] = Array.from({ length: rowCount }, (_, i) =>
-          String(i + 1),
-        );
+        result[name] = Array.from({ length: rowCount }, (_, i) => String(i + 1));
         return;
       }
 
+      // Requested column genuinely absent -> emit blanks so row alignment holds
       console.warn(
         `[TableComponent] Column "${name}" not found in fetched data. Available:`,
         headers,
       );
+      result[name] = Array.from({ length: rowCount }, () => "");
       return;
     }
 
@@ -563,7 +581,6 @@ async function TableComponentScapDatabackEndModify(
     );
   });
 
-  // Nothing matched or was produced -> fall back to the actual data
   if (Object.keys(result).length === 0) return columnData;
 
   return result;
@@ -574,16 +591,16 @@ export default function TableComponent({
   title,
   rows = [],
   userId,
-  baseUrl,
+  baseUrl = "dataFetch",
   onData,
   debug = false,
-  dataBaseId ,
+  dataBaseId,
 }: {
   children?: ReactNode | ((data: ScapColumnData | null) => ReactNode);
   title: string;
   rows: Record<string, string>[];
   userId: string;
-  baseUrl: string;
+  baseUrl?: WebhookKey | string; // registry key or full URL
   onData?: (data: ScapColumnData) => void;
   debug?: boolean;
   dataBaseId: string;
@@ -617,7 +634,7 @@ export default function TableComponent({
         rows,
         userId,
         baseUrl,
-        dataBaseId
+        dataBaseId,
       ).finally(() => {
         inflightRequests.delete(cacheKey);
       });
@@ -630,23 +647,22 @@ export default function TableComponent({
         if (!cancelled) {
           setError(null);
           setDatas(data);
-          console.log("hmm", data);
+          if (debug) console.log(`[TableComponent] ${title}:`, data);
           onData?.(data);
         }
       })
       .catch((error) => {
         console.error("Failed to load table data:", error);
         if (!cancelled) {
-          setError(
-            error instanceof Error ? error.message : String(error),
-          );
+          setError(error instanceof Error ? error.message : String(error));
         }
       });
+
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rowsKey, userId, baseUrl]);
+  }, [rowsKey, userId, baseUrl, dataBaseId]);
 
   const [applications, setApplications] = useState<any[]>([]);
   const [metrics, setMetrics] = useState({
@@ -659,7 +675,6 @@ export default function TableComponent({
   });
 
   const handleDataLoaded = useCallback((rows: any[]) => {
-    console.log("Actual Scraped Table Data:", rows);
     let applied = 0;
     let underReview = 0;
     let interviewScheduled = 0;
@@ -667,7 +682,6 @@ export default function TableComponent({
     let rejected = 0;
 
     const parsedApps = rows.map((row, index) => {
-      // FIX: Added row.review to look for your exact spreadsheet header
       const statusText = (row.review || row.status || row.Status || "").trim();
       const statusLower = statusText.toLowerCase();
 
@@ -682,7 +696,7 @@ export default function TableComponent({
         variant = "offer";
         offerReceived++;
       } else if (statusLower.includes("reject")) {
-        variant = "reject"; // Aligned with internal enum values[cite: 1, 2]
+        variant = "reject";
         rejected++;
       } else {
         applied++;
@@ -735,10 +749,15 @@ export default function TableComponent({
     });
   }, []);
 
-  const getPercentage = (count: number) => {
-    if (metrics.totalApplications === 0) return "0.0%";
-    return `${((count / metrics.totalApplications) * 100).toFixed(1)}%`;
-  };
+  // Row count of the fetched table data (used when children render the table)
+  const tableRowCount = (() => {
+    if (!datas) return 0;
+    const keys = Object.keys(datas);
+    return keys.length > 0 ? (datas[keys[0]]?.length ?? 0) : 0;
+  })();
+
+  const shownCount = children ? tableRowCount : applications.length;
+  const totalCount = children ? tableRowCount : metrics.totalApplications;
 
   return (
     <div>
@@ -776,15 +795,13 @@ export default function TableComponent({
         footer={
           <div className="flex items-center justify-between w-full py-2 bg-white">
             <span className="text-xs font-normal text-slate-400">
-              Showing <span className="font-medium text-slate-600">1</span> to{" "}
+              Showing{" "}
               <span className="font-medium text-slate-600">
-                {applications.length}
+                {shownCount === 0 ? 0 : 1}
               </span>{" "}
-              of{" "}
-              <span className="font-medium text-slate-600">
-                {metrics.totalApplications}
-              </span>{" "}
-              applications
+              to <span className="font-medium text-slate-600">{shownCount}</span>{" "}
+              of <span className="font-medium text-slate-600">{totalCount}</span>{" "}
+              {children ? "rows" : "applications"}
             </span>
           </div>
         }
@@ -799,7 +816,7 @@ export default function TableComponent({
               <table className="w-full text-left border-collapse min-w-[980px]">
                 <thead>
                   <tr className="border-b border-slate-50 text-[11px] font-semibold text-slate-500 bg-slate-50/30">
-                    <th className="py-3 px-5 w-[32%]">Job & Company</th>
+                    <th className="py-3 px-5 w-[32%]">Job &amp; Company</th>
                     <th className="py-3 px-5 w-[20%]">Location</th>
                     <th className="py-3 px-5 w-[15%]">Date Applied</th>
                     <th className="py-3 px-5 w-[15%]">Status</th>
@@ -879,11 +896,13 @@ export default function TableComponent({
         </div>
       )}
 
-      <GoogleSheetReader
-        userId={user.id}
-        debug={false}
-        onDataLoaded={handleDataLoaded}
-      />
+      {!children && (
+        <GoogleSheetReader
+          userId={user.id}
+          debug={false}
+          onDataLoaded={handleDataLoaded}
+        />
+      )}
     </div>
   );
 }

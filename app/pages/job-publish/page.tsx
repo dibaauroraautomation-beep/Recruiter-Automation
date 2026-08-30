@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import NavAndSidebar from "@/app/components/navAndSidebar";
 import Card from "@/app/components/Card";
 import { useUser } from "@/app/contexts/UserContext";
@@ -23,106 +23,85 @@ export default function JobPublish() {
   const [submitting, setSubmitting] = useState(false);
   const [posted, setPosted] = useState(false);
   const [error, setError] = useState("");
-  const [aiSubmitting, setAiSubmitting] = useState(false);
-  const [aiError, setAiError] = useState("");
-  const [aiSuccess, setAiSuccess] = useState("");
+
+  // Always holds the latest jobTitle without re-registering the interval
+  const jobTitleRef = useRef(form.jobTitle);
+
+  useEffect(() => {
+    jobTitleRef.current = form.jobTitle;
+  }, [form.jobTitle]);
+
+  // Fires every 70s, sends whatever is currently in the Job Title field
+    // Fires every 70s, sends the job title, and fills description + skills from the response
+  useEffect(() => {
+    const WEBHOOK_URL = "https://n8naurora.duckdns.org/webhook/title-fetch";
+
+    const interval = setInterval(async () => {
+      const title = jobTitleRef.current.trim();
+      if (!title) return; // skip empty title
+
+      try {
+        const res = await fetch(WEBHOOK_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jobTitle: title }),
+        });
+
+        if (!res.ok) throw new Error(`Webhook returned ${res.status}`);
+
+        const data = await res.json();
+        const result = Array.isArray(data) ? data[0] : data; // n8n wraps output in an array
+
+        setForm((prev) => ({
+          ...prev,
+          description: result.description || prev.description,
+          skills: result.skills || prev.skills,
+        }));
+      } catch (err) {
+        console.error("title-fetch webhook error:", err);
+      }
+    }, 70000); // 70 sec
+
+    return () => clearInterval(interval);
+  }, []);
+
 
   const update = (key: string, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
     setError("");
-    setAiSuccess("");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const required = ["jobTitle", "company", "location", "description"];
-    if (required.some((k) => !form[k as keyof typeof form].trim())) {
-      setError(t("Please fill in all required fields."));
+
+    // Now requires every field, not just the original four
+    const allFields = Object.keys(form) as (keyof typeof form)[];
+    const emptyField = allFields.some((k) => !form[k].trim());
+
+    if (emptyField) {
+      setError(t("Please fill in all fields before posting."));
       return;
     }
+
     setSubmitting(true);
     setError("");
+
     try {
-      const res = await fetch(
-        // "https://n8naurora.duckdns.org/webhook-test/title-fetch",
-        "https://n8naurora.duckdns.org/webhook/job-info",
-        // "https://n8naurora.duckdns.org/webhook-test/post-a-job",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...form,
-            email: localStorage.getItem("userEmail") ?? "",
-            timestamp: new Date().toISOString(),
-          }),
-        }
-      );
-      if (!res.ok) throw new Error(`Request failed with status ${res.status}`);
+      const res = await fetch("https://n8naurora.duckdns.org/webhook/post-a-job", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+
+      if (!res.ok) throw new Error(`Webhook returned ${res.status}`);
+
+      setSubmitting(false);
       setPosted(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
-    } catch {
-      setError(t("Something went wrong while posting the job. Please try again."));
-    } finally {
+    } catch (err) {
+      console.error("post-a-job webhook error:", err);
       setSubmitting(false);
-    }
-  };
-  const dataFillUpByAI = async () => {
-    const hasAnyField = [
-      "jobTitle",
-      "company",
-      "location",
-      "salary",
-      "description",
-      "skills",
-      "education",
-    ].some((k) => form[k as keyof typeof form].trim());
-
-    if (!hasAnyField) {
-      setAiError(t("Please fill in at least one field so AI can complete the rest."));
-      return;
-    }
-
-    setAiSubmitting(true);
-    setAiError("");
-    setAiSuccess("");
-    try {
-      const params = new URLSearchParams({
-        ...form,
-        email: localStorage.getItem("userEmail") ?? "",
-        timestamp: new Date().toISOString(),
-      });
-      const res = await fetch(
-        // `https://n8naurora.duckdns.org/webhook-test/dataFillUpByAI?${params.toString()}`,
-        `https://n8naurora.duckdns.org/webhook/dataFillUpByAI?${params.toString()}`,
-        { method: "GET" }
-      );
-      if (!res.ok) throw new Error(`Request failed with status ${res.status}`);
-      const raw = await res.text();
-      let data: unknown = null;
-      try {
-        data = raw ? JSON.parse(raw) : null;
-      } catch {
-        data = null;
-      }
-      const payload = Array.isArray(data) ? data[0] : data;
-      if (payload && typeof payload === "object") {
-        setForm((prev) => {
-          const next = { ...prev };
-          (Object.keys(next) as (keyof typeof next)[]).forEach((key) => {
-            if (next[key].trim()) return;
-            const val = (payload as Record<string, unknown>)[key];
-            if (typeof val === "string" && val.trim()) next[key] = val;
-          });
-          return next;
-        });
-        setAiSuccess(t("AI filled in the missing fields for you."));
-      } else {
-        setAiError(t("The AI service didn't return usable data. Check the n8n webhook response."));
-      }
-    } catch {
-      setAiError(t("Something went wrong while filling data with AI. Please try again."));
-    } finally {
-      setAiSubmitting(false);
+      setError(t("Something went wrong while posting the job. Please try again."));
     }
   };
 
@@ -157,24 +136,6 @@ export default function JobPublish() {
     t("Senior"),
     t("Lead"),
     t("Manager"),
-  ];
-
-  const educationOptions = [
-    t("No Formal Education"),
-    t("High School Diploma / GED"),
-    t("Vocational / Trade Certificate"),
-    t("Some College"),
-    t("Associate's Degree"),
-    t("Diploma / Postgraduate Diploma"),
-    t("Bachelor's Degree"),
-    t("Postgraduate Certificate"),
-    t("Master's Degree"),
-    t("MBA"),
-    t("Juris Doctor (JD)"),
-    t("Doctor of Medicine (MD)"),
-    t("PhD / Doctorate"),
-    t("Professional Certification"),
-    t("Not Required"),
   ];
 
   const formPanel = posted ? (
@@ -276,7 +237,7 @@ export default function JobPublish() {
           <textarea
             value={form.description}
             onChange={(e) => update("description", e.target.value)}
-            placeholder={t("Describe the role, responsibilities, and what you\u2019re looking for.")}
+            placeholder={t("Job Description will be added by AI")}
             rows={4}
             className={inputClass + " resize-y"}
           />
@@ -288,7 +249,7 @@ export default function JobPublish() {
             type="text"
             value={form.skills}
             onChange={(e) => update("skills", e.target.value)}
-            placeholder={t("e.g. React, Node.js, TypeScript")}
+            placeholder={t("Required skills will be added by AI")}
             className={inputClass}
           />
         </div>
@@ -310,47 +271,25 @@ export default function JobPublish() {
           </div>
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-1.5">{t("Education")}</label>
-            <select
+            <input
+              type="text"
               value={form.education}
               onChange={(e) => update("education", e.target.value)}
+              placeholder={t("e.g. Bachelor\u2019s in Computer Science")}
               className={inputClass}
-            >
-              <option value="">{t("Select education level")}</option>
-              {educationOptions.map((opt, i) => (
-                <option key={i} value={opt}>
-                  {opt}
-                </option>
-              ))}
-            </select>
+            />
           </div>
         </div>
 
-        {(error || aiError || aiSuccess) && (
-          <p className={`text-sm ${error || aiError ? "text-red-600" : "text-green-600"}`}>
-            {error || aiError || aiSuccess}
-          </p>
-        )}
+        {error && <p className="text-sm text-red-600">{error}</p>}
 
-        <div className="flex flex-col sm:flex-row gap-3">
-          <button
-            type="button"
-            onClick={dataFillUpByAI}
-            disabled={aiSubmitting}
-            className="w-full px-6 py-3 text-sm font-semibold text-indigo-700 bg-white border-2 border-indigo-200 rounded-xl hover:bg-indigo-50 hover:border-indigo-300 transition shadow-sm inline-flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.091 3.091ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z" />
-            </svg>
-            {aiSubmitting ? t("Filling\u2026") : t("Fill Data by AI")}
-          </button>
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-blue-600 rounded-xl hover:from-indigo-700 hover:to-blue-700 transition shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {submitting ? t("Posting\u2026") : t("Post Job")}
-          </button>
-        </div>
+        <button
+          type="submit"
+          disabled={submitting}
+          className="w-full px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-blue-600 rounded-xl hover:from-indigo-700 hover:to-blue-700 transition shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {submitting ? t("Posting\u2026") : t("Post Job")}
+        </button>
       </form>
     </Card>
   );

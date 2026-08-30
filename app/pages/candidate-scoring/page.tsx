@@ -1,262 +1,262 @@
 "use client";
-import FeatureCard from "@/app/components/FeatureCard";
+import { useState } from "react";
 import NavAndSidebar from "@/app/components/navAndSidebar";
-import Card from "@/app/components/Card";
-import TableComponent from "@/app/components/TableComponent";
-
-import {  useT } from "@/app/contexts/LanguageContext";
-
-import { useJobDescription } from "@/app/contexts/JobDescriptionContext";
-import { useGoogleDrivePicker } from "@/app/hooks/useGoogleDrivePicker";
-
-
-import { useState,useRef, useEffect} from "react";
-import { generateCoverLetterPDF } from "@/app/components/jsPDF";
-import { generateCoverLetterDocx } from "@/app/components/DocxGenerator";
+import TableComponent, { type TableData } from "@/app/components/TableComponent";
 import { useUser } from "@/app/contexts/UserContext";
+import { useLanguage } from "@/app/contexts/LanguageContext";
+import { FaChevronDown, FaChevronUp } from "react-icons/fa";
 
-function UploadCard({
-  file,
-  onFileChange,
-}: {
-  file: File | null;
-  onFileChange: (f: File | null) => void;
-}) {
-  const t = useT();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const { openDrivePicker } = useGoogleDrivePicker({
-    onFilePicked: (f) => {
-      if (f.size > 10 * 1024 * 1024) {
-        alert(t("File size must be less than 10 MB."));
-        return;
-      }
-      onFileChange(f);
-    },
-  });
+const CANDIDATE_DATA_URL = "https://n8naurora.duckdns.org/webhook/candidate-data";
 
-  return (
-    <>
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".pdf,.doc,.docx"
-        className="hidden"
-        onChange={(e) => {
-          const selected = e.target.files?.[0];
-          if (!selected) return;
-          const maxSize = 10 * 1024 * 1024;
-          const allowed = [
-            "application/pdf",
-            "application/msword",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-          ];
-          if (!allowed.includes(selected.type)) {
-            alert(t("Please upload a PDF or DOC file."));
-            e.target.value = "";
-            return;
-          }
-          if (selected.size > maxSize) {
-            alert(t("File size must be less than 10 MB."));
-            e.target.value = "";
-            return;
-          }
-          onFileChange(selected);
-        }}
-      />
-      <FeatureCard
-        number={1}
-        title={t("Upload Resume")}
-        subtitle={t("Upload your resume in PDF or DOCX format to get started.")}
-        bodyClassName="flex flex-col"
-      >
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          className="w-full flex items-center gap-3 px-4 py-3 mb-3 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/50 transition text-left"
-        >
-          <svg className="w-6 h-6 text-red-500 shrink-0" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M6 2a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6H6Zm7 1.5L18.5 9H14a1 1 0 0 1-1-1V3.5Z" />
-          </svg>
-          <span className="flex-1 min-w-0">
-            <span className="block text-sm font-semibold text-slate-700 truncate">
-              {file ? file.name : t("Upload from Computer")}
-            </span>
-            <span className="block text-xs text-slate-400">
-              {file ? `${(file.size / 1024).toFixed(0)} KB` : t("PDF, DOCX \u2014 Max 10 MB")}
-            </span>
-          </span>
-          {file && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onFileChange(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
-              className="shrink-0 text-slate-400 hover:text-red-500 text-base leading-none p-1"
-            >
-              &times;
-            </button>
-          )}
-        </button>
-        <button
-          onClick={openDrivePicker}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/50 transition text-left"
-        >
-          <svg className="w-6 h-6 shrink-0" viewBox="0 0 24 24">
-            <path fill="#0066da" d="M4.5 19.5 7 15h10l-2.5 4.5z" />
-            <path fill="#00ac47" d="M9.5 4 4.5 12.5 7 17l5-8.5z" />
-            <path fill="#ffba00" d="M14.5 4h-5l5 8.5L19.5 17 14.5 4z" />
-          </svg>
-          <span className="min-w-0">
-            <span className="block text-sm font-semibold text-slate-700 truncate">{t("Import from Google Drive")}</span>
-            <span className="block text-xs text-slate-400 truncate">{t("Select files directly from Drive")}</span>
-          </span>
-        </button>
-        <p className="mt-auto pt-4 flex items-center gap-1.5 text-xs text-slate-400">
-          <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 0h10.5a1.5 1.5 0 0 1 1.5 1.5v6a1.5 1.5 0 0 1-1.5 1.5H6.75a1.5 1.5 0 0 1-1.5-1.5v-6a1.5 1.5 0 0 1 1.5-1.5Z" />
-          </svg>
-          {t("Your files are secure and private.")}
-        </p>
-      </FeatureCard>
-    </>
-  );
+// how many words to show when the summary is collapsed
+const COLLAPSED_WORD_COUNT = 5;
+
+// ===== COLUMN ORDER =====
+// key   = column name as it arrives from the webhook (case-insensitive match)
+// label = header text shown in the table
+// width = <col> width; must add up to 100%
+const COLUMNS: { key: string; label: string; width: string }[] = [
+  { key: "formtitle",    label: "Job Title",       width: "12%" },
+  { key: "fullname",     label: "Full Name",       width: "12%" },
+  { key: "email",        label: "Email",           width: "14%" },
+  { key: "phoneno",      label: "Phone No",        width: "10%" },
+  { key: "cvlink",       label: "CV Link",         width: "7%"  },
+  { key: "atsscore",     label: "ATS Score",       width: "8%"  },
+  { key: "summarycomment", label: "Summary",       width: "22%" },
+  { key: "salary",       label: "Expected Salary", width: "8%"  },
+  { key: "noticeperiod", label: "Notice Period",   width: "7%"  },
+];
+
+const JOB_TITLE_KEY = "formtitle";
+const SUMMARY_KEY = "summarycomment";
+
+// alternate names the same column might arrive under
+const KEY_ALIASES: Record<string, string[]> = {
+  formtitle: ["formtitle", "jobtitle", "title"],
+  fullname: ["fullname", "name", "candidatename"],
+  email: ["email", "emailaddress"],
+  phoneno: ["phoneno", "phone", "phonenumber", "mobile"],
+  cvlink: ["cvlink", "cv", "resume", "resumelink", "drivelink"],
+  atsscore: ["atsscore", "score", "ats", "candidatescore"],
+  summarycomment: ["summarycomment", "summary", "comment", "aisummary", "remarks"],
+  salary: ["salary", "expectedsalary"],
+  noticeperiod: ["noticeperiod", "notice"],
+};
+
+const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+// map a COLUMNS key to the real header present in the fetched data
+function resolveKey(rawHeaders: string[], key: string): string | null {
+  const map = new Map(rawHeaders.map((h) => [norm(h), h]));
+  for (const alias of KEY_ALIASES[key] ?? [key]) {
+    const hit = map.get(norm(alias));
+    if (hit) return hit;
+  }
+  return null;
 }
 
-export default function CoverLetterGenerator() {
+function snippet(text: string, words: number) {
+  const parts = text.trim().split(/\s+/);
+  if (parts.length <= words) return text;
+  return parts.slice(0, words).join(" ") + "…";
+}
+
+export default function CandidateScoring() {
   const { user } = useUser();
-  const pageWebHookUrl = user.WebHook_Url["coverLetterGenerator"];
-  const { coverLetterJobDescription, setCoverLetterJobDescription } = useJobDescription();
-  console.log("user.name:", user.name,"user.id:", user.id,"pageWebHookUrl = user.WebHook_Url[\"coverLetterGenerator\"]", pageWebHookUrl);
-  const [jobDescription, setJobDescription] = useState(coverLetterJobDescription || "");
-  const [aiGeneratedText, setAiGeneratedText] = useState("");
-  const [isEditBtnDisabled, setIsEditBtnDisabled] = useState<boolean>(true);
-  const [isCopied, setIsCopied] = useState(false);
-  const [status, setStatus] = useState<
-    "idle" | "uploading" | "processing" | "completed" | "error"
-  >("idle");
-  const [error, setError] = useState<string | null>(null);
-  const [file, setFile] = useState<File | null>(null);
+  const { t } = useLanguage();
+  const [datas, setDatas] = useState<TableData | null>(null);
 
-  // Sync shared description to local state
-  useEffect(() => {
-    setJobDescription(coverLetterJobDescription);
-  }, [coverLetterJobDescription]);
+  // COLUMN: SUMMARY — expand/collapse state per row
+  const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
 
-  // Modern and safe clipboard API utility handler
-  const handleCopyText = async () => {
-    if (!aiGeneratedText) return;
-    try {
-      await navigator.clipboard.writeText(aiGeneratedText);
-      setIsCopied(true);
-      setTimeout(() => setIsCopied(false), 2000);
-    } catch (err) {
-      console.error("Failed to copy text: ", err);
-    }
+  const rawHeaders = datas ? Object.keys(datas) : [];
+
+  // only keep the columns defined above, in that exact order;
+  // id / created_at / updated_at and anything else are dropped
+  const columns = COLUMNS.map((col) => ({
+    ...col,
+    resolved: resolveKey(rawHeaders, col.key),
+  })).filter((col) => col.resolved !== null);
+
+  const rowCount =
+    rawHeaders.length > 0 && Array.isArray(datas?.[rawHeaders[0]])
+      ? datas![rawHeaders[0]].length
+      : 0;
+
+  const isLoading = datas === null;
+
+  const toggleExpand = (index: number) => {
+    setExpandedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
+      return next;
+    });
   };
 
-  const handleClick = (
-    language: "de" | "EN",
-    // baseUrl: string = "https://n8naurora.duckdns.org/webhook-test/coverLetterGenerator",
-    baseUrl: string = "https://n8naurora.duckdns.org/webhook/coverLetterGenerator",
-    userId: string = "ATS_Friendly_CV_pdf_Banglalink_20714",
-  ) => {
-    console.log("Generating cover letter...");
-    // 1. Set status to processing when starting the fetch
-    setStatus("processing");
-    setJobDescription("");
-    setAiGeneratedText("");
-    // Correct URL formatting using standard ampersand delimiters
-    const targetUrl = `${baseUrl}?userId=${userId}&userWritenJobDec=${encodeURIComponent(jobDescription)}&language=${language}`;
-
-    fetch(targetUrl)
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-        return response.text();
-      })
-      .then((data) => {
-        console.log("User Data Received Successfully");
-        setAiGeneratedText(data);
-        // 2. Set status to idle when fetch returns successfully (ok)
-        setStatus("idle");
-      })
-      .catch((error) => {
-        console.error("Fetch failed:", error);
-        setStatus("error");
-        setError(error);
-      });
-  };
+  const rowIndexes: number[] = [];
+  for (let i = 0; i < rowCount; i++) {
+    rowIndexes.push(i);
+  }
 
   return (
     <NavAndSidebar
       pageInfo={[
-        "candidate-scoring_NAME",
-        " Utilizing algorithmic matching or automated matrix templates to evaluate raw applicant data against specific job criteria.",
+        "candidate scoring",
+        "Applicant data collected from the job forms is evaluated against the criteria defined for each role.",
         "candidate-scoring",
       ]}
-user={[
+      user={[
         user.name,
         user.profilePic,
         user.notificationNumber,
         user.purchasePlan,
-        pageWebHookUrl,
+        user.WebHook_Url["CandidateScoring"],
       ]}
       sidebarHeight="h-screen"
     >
       <TableComponent
         title="Candidate Scoring"
-        rows={[]}
-        baseUrl="https://n8naurora.duckdns.org/webhook/data-Fetch"
+        rows={[]}                       // empty = return every column
+        baseUrl={CANDIDATE_DATA_URL}
         userId="gh"
-        debug
-        dataBaseId="candidate info"
+        onData={setDatas}
+        debug={false}
+        dataBaseId="candidate"
       >
-        {(datas) => {
-          console.log(datas)
-          const headers = datas ? Object.keys(datas) : [];
-          const rowCount =
-            headers.length > 0 && datas ? datas[headers[0]].length : 0;
+        {/* table-fixed + colgroup: this is what makes truncate actually work */}
+        <table className="w-full text-left border-collapse table-fixed min-w-[1150px]">
+          <colgroup>
+            {columns.map((col) => (
+              <col key={col.key} style={{ width: col.width }} />
+            ))}
+          </colgroup>
 
-          return (
-            <table className="w-full text-left border-collapse min-w-[980px]">
-              <thead>
-                <tr className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 bg-slate-50/70">
-                  {headers.map((header) => (
-                    <th key={header} className="py-3.5 px-5 whitespace-nowrap">
-                      {header}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {rowCount === 0 && (
-                  <tr>
-                    <td
-                      colSpan={Math.max(headers.length, 1)}
-                      className="py-10 text-center text-xs text-slate-400"
-                    >
-                      Loading…
-                    </td>
-                  </tr>
-                )}
-                {Array.from({ length: rowCount }, (_, i) => (
-                  <tr
-                    key={i}
-                    className="group transition-colors hover:bg-slate-50/60"
-                  >
-                    {headers.map((header) => (
+          <thead>
+            <tr className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 bg-slate-50/70">
+              {columns.map((col, idx) => (
+                <th
+                  key={col.key}
+                  className={
+                    "py-3.5 px-5 whitespace-nowrap" +
+                    (idx === 0 ? " rounded-tl-xl" : "") +
+                    (idx === columns.length - 1 ? " rounded-tr-xl" : "") +
+                    // COLUMN: JOB TITLE — highlighted header
+                    (col.key === JOB_TITLE_KEY
+                      ? " bg-indigo-50/80 text-indigo-700 border-r border-indigo-100"
+                      : "")
+                  }
+                >
+                  {t(col.label)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+
+          <tbody className="divide-y divide-slate-100">
+            {rowCount === 0 && (
+              <tr>
+                <td
+                  colSpan={Math.max(columns.length, 1)}
+                  className="py-10 text-center text-xs text-slate-400"
+                >
+                  {isLoading ? t("Loading...") : t("No candidates yet")}
+                </td>
+              </tr>
+            )}
+
+            {rowIndexes.map((i) => {
+              const isExpanded = expandedRows.has(i);
+
+              return (
+                <tr key={i} className="group transition-colors hover:bg-slate-50/60">
+                  {columns.map((col) => {
+                    const value = String(datas?.[col.resolved!]?.[i] ?? "");
+                    const isEmpty = !value || value.toLowerCase() === "null";
+                    const isLink = /^https?:\/\//i.test(value);
+
+                    // ===== COLUMN: JOB TITLE =====
+                    if (col.key === JOB_TITLE_KEY) {
+                      return (
+                        <td
+                          key={col.key}
+                          className="py-4 px-5 align-top bg-indigo-50/40 border-r border-indigo-100 group-hover:bg-indigo-50/70 transition-colors"
+                        >
+                          <span className="text-sm font-bold text-indigo-900 tracking-tight break-words">
+                            {isEmpty ? "—" : value}
+                          </span>
+                        </td>
+                      );
+                    }
+
+                    // ===== COLUMN: SUMMARY =====
+                    if (col.key === SUMMARY_KEY) {
+                      return (
+                        <td key={col.key} className="py-4 px-5 align-top">
+                          <div className="flex items-start gap-2 min-w-0">
+                            {isEmpty && (
+                              <p className="text-xs italic text-slate-400">—</p>
+                            )}
+
+                            {!isEmpty && (
+                              <>
+                                <p className="text-xs text-slate-600 min-w-0 flex-1 whitespace-pre-wrap break-words">
+                                  {isExpanded
+                                    ? value
+                                    : snippet(value, COLLAPSED_WORD_COUNT)}
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() => toggleExpand(i)}
+                                  className="mt-0.5 shrink-0 text-slate-400 hover:text-slate-700"
+                                  aria-label={isExpanded ? t("Collapse") : t("Expand")}
+                                  aria-expanded={isExpanded}
+                                >
+                                  {isExpanded ? (
+                                    <FaChevronUp className="w-3 h-3" />
+                                  ) : (
+                                    <FaChevronDown className="w-3 h-3" />
+                                  )}
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      );
+                    }
+
+                    // ===== ALL OTHER COLUMNS =====
+                    return (
                       <td
-                        key={header}
-                        className="py-4 px-5 text-xs text-slate-700"
+                        key={col.key}
+                        className="py-4 px-5 text-xs text-slate-700 align-top"
                       >
-                        {datas?.[header]?.[i] ?? ""}
+                        {isLink ? (
+                          <a
+                            href={value}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sky-600 hover:underline"
+                          >
+                            {t("Open")}
+                          </a>
+                        ) : (
+                          <span className="block truncate" title={value}>
+                            {isEmpty ? "" : value}
+                          </span>
+                        )}
                       </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          );
-        }}
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </TableComponent>
-      
     </NavAndSidebar>
   );
 }
