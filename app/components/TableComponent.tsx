@@ -116,16 +116,6 @@ function TableComponentScapData(text: string = ""): ScapColumnData {
   }
 }
 
-const getColumnLetter = (index: number): string => {
-  let letter = "";
-  let n = index;
-  do {
-    letter = String.fromCharCode(65 + (n % 26)) + letter;
-    n = Math.floor(n / 26) - 1;
-  } while (n >= 0);
-  return letter;
-};
-
 type FormulaToken = {
   type: "number" | "string" | "ident" | "op" | "lparen" | "rparen" | "comma";
   value: string;
@@ -420,14 +410,14 @@ const escapeFormulaValue = (value: string): string =>
 
 const evaluateFormula = (
   formula: string,
-  letterToHeader: Record<string, string>,
+  resolveHeader: (key: string) => string | undefined,
   columnData: ScapColumnData,
   rowIndex: number,
 ): string => {
   const resolveRefValue = (ref: string): string => {
     const m = /^([A-Za-z]+)([0-9]*)$/.exec(ref.trim());
     if (!m) return "null";
-    const header = letterToHeader[m[1].toUpperCase()];
+    const header = resolveHeader(m[1]);
     if (!header) return "null";
     const targetRow = m[2] ? parseInt(m[2], 10) - 1 : rowIndex;
     return String(columnData[header]?.[targetRow] ?? "null");
@@ -441,8 +431,9 @@ const evaluateFormula = (
     (_match, cellRef: string, rangeRef?: string, orderArg?: string) => {
       const current = parseFloat(resolveRefValue(cellRef));
       if (!Number.isFinite(current)) return '"null"';
-      const header =
-        letterToHeader[(rangeRef ?? cellRef).trim().toUpperCase()];
+      const header = resolveHeader(
+        (rangeRef ?? cellRef).trim().replace(/[0-9]+$/, ""),
+      );
       const pool = (header ? (columnData[header] ?? []) : [])
         .map((v) => parseFloat(v))
         .filter((v) => Number.isFinite(v));
@@ -479,7 +470,7 @@ const evaluateFormula = (
 };
 
 async function TableComponentScapDatabackEndModify(
-  rows: Record<string, string>[] = [],
+  cols: Record<string, string>[] = [],
   userId: string = "",
   baseUrl: string = "",
   dataBaseId: string = "",
@@ -487,21 +478,16 @@ async function TableComponentScapDatabackEndModify(
   const text = await fetchDataFromTable(userId, baseUrl,dataBaseId);
   const columnData = TableComponentScapData(text);
 
-  if (rows.length === 0) return columnData;
+  if (cols.length === 0) return columnData;
 
-  // No non-empty value provided in any row -> return the actual data object as-is
-  const hasFormulaEntry = rows.some(
+  // No non-empty value provided in any col -> return the actual data object as-is
+  const hasFormulaEntry = cols.some(
     (obj) => String(Object.values(obj)[0] ?? "").trim() !== "",
   );
   if (!hasFormulaEntry) return columnData;
 
   const headers = Object.keys(columnData);
   const rowCount = headers.length > 0 ? columnData[headers[0]].length : 0;
-
-  const letterToHeader: Record<string, string> = {};
-  headers.forEach((header, index) => {
-    letterToHeader[getColumnLetter(index)] = header;
-  });
 
   const result: ScapColumnData = {};
 
@@ -517,6 +503,7 @@ async function TableComponentScapDatabackEndModify(
     skills: ["skillsneeded", "skill", "skillset"],
     interviewinvitation: ["interviewstatus", "invitationstatus", "status"],
     rank: ["rank", "sno", "slno", "serialnumber"],
+    email: ["candidateemail", "applicantemail", "contactemail", "emailaddress", "mail"],
   };
 
   const resolveHeader = (key: string): string | undefined => {
@@ -526,10 +513,17 @@ async function TableComponentScapDatabackEndModify(
       const hit = normHeaderMap.get(alias);
       if (hit) return hit;
     }
+    // Fallback: substring match, so compound headers like "Candidate Email
+    // Address" still resolve for a friendly name like "email".
+    const partial = headers.find((h) => {
+      const hn = norm(h);
+      return hn.includes(n) || n.includes(hn);
+    });
+    if (partial) return partial;
     return undefined;
   };
 
-  rows.forEach((obj) => {
+  cols.forEach((obj) => {
     const name = Object.keys(obj)[0];
     if (name === undefined) return;
     const formula = (obj[name] ?? "").trim();
@@ -559,7 +553,7 @@ async function TableComponentScapDatabackEndModify(
     }
 
     result[name] = Array.from({ length: rowCount }, (_, rowIndex) =>
-      evaluateFormula(formula, letterToHeader, columnData, rowIndex),
+      evaluateFormula(formula, resolveHeader, columnData, rowIndex),
     );
   });
 
@@ -572,7 +566,7 @@ async function TableComponentScapDatabackEndModify(
 export default function TableComponent({
   children,
   title,
-  rows = [],
+  cols = [],
   userId,
   baseUrl,
   onData,
@@ -581,7 +575,7 @@ export default function TableComponent({
 }: {
   children?: ReactNode | ((data: ScapColumnData | null) => ReactNode);
   title: string;
-  rows: Record<string, string>[];
+  cols: Record<string, string>[];
   userId: string;
   baseUrl: string;
   onData?: (data: ScapColumnData) => void;
@@ -590,7 +584,7 @@ export default function TableComponent({
 }) {
   const { user } = useUser();
 
-  const rowsKey = JSON.stringify(rows);
+  const colsKey = JSON.stringify(cols);
   const [datas, setDatas] = useState<ScapColumnData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -598,7 +592,7 @@ export default function TableComponent({
     let cancelled = false;
 
     // Shared across all instances/pages: identical requests are fetched once
-    const cacheKey = `${baseUrl}|${userId}|${dataBaseId}|${rowsKey}`;
+    const cacheKey = `${baseUrl}|${userId}|${dataBaseId}|${colsKey}`;
 
     const cached = tableDataCache.get(cacheKey);
     if (cached) {
@@ -614,7 +608,7 @@ export default function TableComponent({
     let request = inflightRequests.get(cacheKey);
     if (!request) {
       request = TableComponentScapDatabackEndModify(
-        rows,
+        cols,
         userId,
         baseUrl,
         dataBaseId
@@ -646,7 +640,7 @@ export default function TableComponent({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rowsKey, userId, baseUrl]);
+  }, [colsKey, userId, baseUrl]);
 
   const [applications, setApplications] = useState<any[]>([]);
   const [metrics, setMetrics] = useState({
