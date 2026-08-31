@@ -13,10 +13,45 @@ type Candidate = {
   currentRole: string;
   score: number | null;
   skills: string[];
+  email: string;
+};
+
+const sendCandidateAction = (
+  action: string,
+  candidateId: number,
+  candidateName: string = "",
+  userId: string = "",
+  email: string = "",
+  // baseUrl: string = "https://n8naurora.duckdns.org/webhook-test/SendAnEmail",
+  baseUrl: string = "https://n8naurora.duckdns.org/webhook/SendAnEmail",
+): Promise<{ ok: boolean; message: string }> => {
+  const targetUrl =
+    `${baseUrl}?action=${encodeURIComponent(action)}` +
+    `&id=${candidateId}` +
+    `&name=${encodeURIComponent(candidateName)}` +
+    `&userId=${encodeURIComponent(userId)}` +
+    `&email=${encodeURIComponent(email)}`;
+
+  return fetch(targetUrl, { method: "GET" })
+    .then((response) => {
+      if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+      return response.text();
+    })
+    .then(() => {
+      console.log(`"${action}" sent for`, candidateName, candidateId);
+      return { ok: true, message: `${action} sent to ${candidateName || "candidate"}` };
+    })
+    .catch((error) => {
+      console.error("Fetch failed:", error);
+      return {
+        ok: false,
+        message: `Failed to send "${action}" to ${candidateName || "candidate"}`,
+      };
+    });
 };
 
 export default function Dashboard() {
-  const eamil="diba-aurora-automation@outlook.com"
+  
   const WebHook_Url = "sdfgh";
   const filterScore:number = 50;
   const t = useT();
@@ -54,6 +89,7 @@ export default function Dashboard() {
     const scoreCol = col("Score");
     const skillsCol = col("Skills");
     const rankCol = col("Rank");
+    const emailCol = col("email");
 
     const rowCount = Math.max(
       nameCol.length,
@@ -61,6 +97,7 @@ export default function Dashboard() {
       scoreCol.length,
       skillsCol.length,
       rankCol.length,
+      emailCol.length,
     );
 
     if (rowCount === 0 && keys.length > 0) {
@@ -88,6 +125,7 @@ export default function Dashboard() {
         Number.isFinite(parseFloat(rankCol[i]))
           ? parseFloat(rankCol[i])
           : i + 1,
+      email: emailCol[i] && emailCol[i] !== "null" ? emailCol[i] : "",
     }))
       .filter((c) => c.score !== null && c.score > filterScore)
       .sort((a, b) => a.rank - b.rank);
@@ -104,21 +142,95 @@ export default function Dashboard() {
       prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
     );
 
+  const [toast, setToast] = useState<
+    { type: "info" | "success" | "error"; message: string } | null
+  >(null);
+  const [pendingActions, setPendingActions] = useState<
+    Map<number, "Send Invitation" | "Decline">
+  >(new Map());
+
   useEffect(() => {
-    fetch(WebHook_Url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: localStorage.getItem("userEmail") ?? "",
-        page: "Dashboard",
-        action: "page_view",
-        timestamp: new Date().toISOString(),
-      }),
-    }).catch(() => {});
+    if (!toast) return;
+    const timer = setTimeout(
+      () => setToast(null),
+      toast.type === "error" ? 4000 : 2500,
+    );
+    return () => clearTimeout(timer);
+  }, [toast]);
+
+  // Sends one candidate's request and updates that candidate's own
+  // pending/toast state. Awaited one at a time (never in parallel) so
+  // requests always go out and resolve individually, never simultaneously.
+  const sendAndNotify = (
+    action: "Send Invitation" | "Decline",
+    candidate: Candidate,
+  ) => {
+    setPendingActions((prev) => new Map(prev).set(candidate.id, action));
+    setToast({ type: "info", message: `Sending "${action}" for ${candidate.name}...` });
+
+    return sendCandidateAction(
+      action,
+      candidate.id,
+      candidate.name,
+      user.id,
+      candidate.email,
+    ).then((result) => {
+      setPendingActions((prev) => {
+        const next = new Map(prev);
+        next.delete(candidate.id);
+        return next;
+      });
+      setToast({ type: result.ok ? "success" : "error", message: result.message });
+      return result;
+    });
+  };
+
+  const runAction = (
+    action: "Send Invitation" | "Decline",
+    candidate: Candidate,
+  ) => {
+    sendAndNotify(action, candidate);
+  };
+
+  const handleBulkAction = async (action: "Send Invitation" | "Decline") => {
+    const targets = candidates.filter((c) => selectedIds.includes(c.id));
+    if (targets.length === 0) return;
+
+    setSelectedIds([]);
+
+    // One request at a time, in order, instead of firing them all at once.
+    for (const candidate of targets) {
+      await sendAndNotify(action, candidate);
+    }
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams({
+      email: localStorage.getItem("userEmail") ?? "",
+      page: "Dashboard",
+      action: "page_view",
+      timestamp: new Date().toISOString(),
+    });
+
+    fetch(`${WebHook_Url}?${params.toString()}`, { method: "GET" }).catch(() => {});
   }, []);
 
   return (
     <div>
+      {toast && (
+        <div
+          role="status"
+          className={`fixed bottom-6 right-6 z-50 max-w-xs px-4 py-3 rounded-xl shadow-lg text-xs font-semibold text-white transition-opacity ${
+            toast.type === "success"
+              ? "bg-emerald-600"
+              : toast.type === "error"
+                ? "bg-red-600"
+                : "bg-slate-800"
+          }`}
+        >
+          {toast.message}
+        </div>
+      )}
       <NavAndSidebar
         pageInfo={[
           "Shortlisted Candidates_NAME",
@@ -135,13 +247,14 @@ export default function Dashboard() {
       >
         <TableComponent
           title={`Candidates with scores > ${filterScore}%`}
-          rows={[
-            { Rank: "RANK(I,I,1)" },
+          cols={[
+            { Rank: "RANK(Score,Score,0)" },
             { CandidateName: "" },
             { CurrentRole: "" },
-            { Score: `IF(I>${filterScore},I)` },
+            { Score: `IF(Score>${filterScore},Score)` },
             { Skills: "" },
             { InterviewInvitation: "" },
+            { email: "" },
           ]}
           baseUrl="https://n8naurora.duckdns.org/webhook/dataFetch"
           // baseUrl="https://n8naurora.duckdns.org/webhook-test/dataFetch"
@@ -150,7 +263,31 @@ export default function Dashboard() {
           debug={false}
           dataBaseId="candidate info"
         >
-          <table className="w-full text-left border-collapse min-w-[980px]">
+          <>
+            {selectedIds.length > 0 && (
+              <div className="flex items-center justify-between gap-3 px-5 py-2.5 mb-2 bg-slate-50 border border-slate-200 rounded-xl">
+                <span className="text-xs font-semibold text-slate-600">
+                  {selectedIds.length} selected
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleBulkAction("Send Invitation")}
+                    disabled={pendingActions.size > 0}
+                    className="px-4 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700 transition shadow-sm whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Send Invitation
+                  </button>
+                  <button
+                    onClick={() => handleBulkAction("Decline")}
+                    disabled={pendingActions.size > 0}
+                    className="px-4 py-1.5 text-xs font-semibold text-white bg-red-600 rounded-md hover:bg-red-700 transition shadow-sm whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Decline
+                  </button>
+                </div>
+              </div>
+            )}
+            <table className="w-full text-left border-collapse min-w-[980px]">
             <thead>
               <tr className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 bg-slate-50/70">
                 <th className="py-3.5 px-5 rounded-tl-xl">Rank</th>
@@ -236,27 +373,30 @@ export default function Dashboard() {
                   <td className="py-4 px-5">
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() =>
-                          console.log("Send invitation:", candidate.name, candidate.id)
-                        }
-                        className="px-4 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700 transition shadow-sm whitespace-nowrap"
+                        onClick={() => runAction("Send Invitation", candidate)}
+                        disabled={pendingActions.has(candidate.id)}
+                        className="px-4 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700 transition shadow-sm whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        Send Invitation
+                        {pendingActions.get(candidate.id) === "Send Invitation"
+                          ? "Sending..."
+                          : "Send Invitation"}
                       </button>
                       <button
-                        onClick={() =>
-                          console.log("Decline:", candidate.name, candidate.id)
-                        }
-                        className="px-4 py-1.5 text-xs font-semibold text-white bg-red-600 rounded-md hover:bg-red-700 transition shadow-sm whitespace-nowrap"
+                        onClick={() => runAction("Decline", candidate)}
+                        disabled={pendingActions.has(candidate.id)}
+                        className="px-4 py-1.5 text-xs font-semibold text-white bg-red-600 rounded-md hover:bg-red-700 transition shadow-sm whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        Decline
+                        {pendingActions.get(candidate.id) === "Decline"
+                          ? "Sending..."
+                          : "Decline"}
                       </button>
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
-          </table>
+            </table>
+          </>
         </TableComponent>
       </NavAndSidebar>
     </div>

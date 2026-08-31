@@ -120,7 +120,7 @@ export default function CandidateScoring() {
     >
       <TableComponent
         title="Candidate Scoring"
-        rows={[]}                       // empty = return every column
+        cols={[]}                       // empty = return every column
         baseUrl={CANDIDATE_DATA_URL}
         userId="gh"
         onData={setDatas}

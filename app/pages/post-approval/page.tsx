@@ -291,6 +291,7 @@ export default function PostApproval() {
         title="Post Approval"
         // rows={[]} returns every column keyed by its real name —
         // no letter formulas, so column order in the response can't break it
+        cols={[]}
         rows={[]}
         baseUrl="https://n8naurora.duckdns.org/webhook/dataFetch"
         userId="gh"
