@@ -23,7 +23,7 @@ const COLUMNS: { key: string; label: string; width: string }[] = [
   { key: "cvlink",       label: "CV Link",         width: "7%"  },
   { key: "atsscore",     label: "ATS Score",       width: "8%"  },
   { key: "summarycomment", label: "Summary",       width: "22%" },
-  { key: "salary",       label: "Expected Salary", width: "8%"  },
+  { key: "salary",       label: "Expected Salary", width: "14%"  },
   { key: "noticeperiod", label: "Notice Period",   width: "7%"  },
 ];
 

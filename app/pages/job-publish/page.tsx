@@ -5,6 +5,16 @@ import Card from "@/app/components/Card";
 import { useUser } from "@/app/contexts/UserContext";
 import { useLanguage } from "@/app/contexts/LanguageContext";
 
+function FieldSpinner() {
+  return (
+    <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-white/70 backdrop-blur-[1px]">
+      <svg className="w-5 h-5 animate-spin text-indigo-600" fill="none" viewBox="0 0 24 24">
+        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4z" />
+      </svg>
+    </div>
+  );
+}
 export default function JobPublish() {
   const { user } = useUser();
   const { t } = useLanguage();
@@ -23,7 +33,7 @@ export default function JobPublish() {
   const [submitting, setSubmitting] = useState(false);
   const [posted, setPosted] = useState(false);
   const [error, setError] = useState("");
-
+  const [aiLoading, setAiLoading] = useState(false);
   // Always holds the latest jobTitle without re-registering the interval
   const jobTitleRef = useRef(form.jobTitle);
 
@@ -32,14 +42,14 @@ export default function JobPublish() {
   }, [form.jobTitle]);
 
   // Fires every 70s, sends whatever is currently in the Job Title field
-    // Fires every 70s, sends the job title, and fills description + skills from the response
+  // Fires every 70s, sends the job title, and fills description + skills from the response
   useEffect(() => {
     const WEBHOOK_URL = "https://n8naurora.duckdns.org/webhook/title-fetch";
 
     const interval = setInterval(async () => {
       const title = jobTitleRef.current.trim();
       if (!title) return; // skip empty title
-
+      setAiLoading(true);
       try {
         const res = await fetch(WEBHOOK_URL, {
           method: "POST",
@@ -59,8 +69,10 @@ export default function JobPublish() {
         }));
       } catch (err) {
         console.error("title-fetch webhook error:", err);
+      } finally {                   // ← new
+        setAiLoading(false);        // ← new
       }
-    }, 70000); // 70 sec
+    }, 50000); // 50 sec
 
     return () => clearInterval(interval);
   }, []);
@@ -232,26 +244,34 @@ export default function JobPublish() {
           />
         </div>
 
-        <div>
+        <div className="relative">
           <label className="block text-sm font-semibold text-slate-700 mb-1.5">{t("Description")}</label>
-          <textarea
-            value={form.description}
-            onChange={(e) => update("description", e.target.value)}
-            placeholder={t("Job Description will be added by AI")}
-            rows={4}
-            className={inputClass + " resize-y"}
-          />
+          <div className="relative">
+            <textarea
+              value={form.description}
+              onChange={(e) => update("description", e.target.value)}
+              placeholder={t("Job Description will be added by AI")}
+              rows={4}
+              disabled={aiLoading}
+              className={inputClass + " resize-y"}
+            />
+            {aiLoading && <FieldSpinner />}
+          </div>
         </div>
 
         <div>
           <label className="block text-sm font-semibold text-slate-700 mb-1.5">{t("Skills Required")}</label>
-          <input
-            type="text"
-            value={form.skills}
-            onChange={(e) => update("skills", e.target.value)}
-            placeholder={t("Required skills will be added by AI")}
-            className={inputClass}
-          />
+          <div className="relative">
+            <input
+              type="text"
+              value={form.skills}
+              onChange={(e) => update("skills", e.target.value)}
+              placeholder={t("Required skills will be added by AI")}
+              disabled={aiLoading}
+              className={inputClass}
+            />
+            {aiLoading && <FieldSpinner />}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
