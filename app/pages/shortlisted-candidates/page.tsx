@@ -233,7 +233,7 @@ export default function Dashboard() {
       )}
       <NavAndSidebar
         pageInfo={[
-          "Shortlisted Candidates_NAME",
+          "Shortlisted Candidates",
           "Narrowing down the entire applicant pool into a curated, high-potential segment ready for direct human interaction.",
           "shortlisted-candidates",
         ]}

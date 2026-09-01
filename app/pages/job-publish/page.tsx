@@ -30,12 +30,28 @@ export default function JobPublish() {
     experienceLevel: "Entry-level",
     education: "",
   });
+  const EDUCATION_OPTIONS = [
+    "Secondary School Certificate (SSC / O-Level)",
+    "Higher Secondary Certificate (HSC / A-Level)",
+    "Diploma",
+    "Associate Degree",
+    "Bachelor's Degree",
+    "Master's Degree",
+    "MBA",
+    "MPhil",
+    "PhD / Doctorate",
+    "Professional Certification",
+    "No formal education required",
+  ];
   const [submitting, setSubmitting] = useState(false);
   const [posted, setPosted] = useState(false);
   const [error, setError] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   // Always holds the latest jobTitle without re-registering the interval
   const jobTitleRef = useRef(form.jobTitle);
+  const [educationIsOther, setEducationIsOther] = useState<boolean>(
+    !!form.education && !EDUCATION_OPTIONS.includes(form.education)
+  );
 
   useEffect(() => {
     jobTitleRef.current = form.jobTitle;
@@ -290,14 +306,43 @@ export default function JobPublish() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1.5">{t("Education")}</label>
-            <input
-              type="text"
-              value={form.education}
-              onChange={(e) => update("education", e.target.value)}
-              placeholder={t("e.g. Bachelor\u2019s in Computer Science")}
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+              {t("Education")}
+            </label>
+
+            <select
+              value={educationIsOther ? "__other__" : form.education}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value === "__other__") {
+                  setEducationIsOther(true);
+                  update("education", "");
+                } else {
+                  setEducationIsOther(false);
+                  update("education", value);
+                }
+              }}
               className={inputClass}
-            />
+            >
+              <option value="">{t("Select education level")}</option>
+              {EDUCATION_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {t(option)}
+                </option>
+              ))}
+              <option value="__other__">{t("Other")}</option>
+            </select>
+
+            {educationIsOther && (
+              <input
+                type="text"
+                value={form.education}
+                onChange={(e) => update("education", e.target.value)}
+                placeholder={t("Type the required education")}
+                className={`${inputClass} mt-2`}
+                autoFocus
+              />
+            )}
           </div>
         </div>
 
@@ -317,7 +362,7 @@ export default function JobPublish() {
   return (
     <NavAndSidebar
       pageInfo={[
-        t("Job publish"),
+        t("Job Requisitions"),
         t("Creating, optimizing, and distributing open roles across multiple external job boards, career pages, and internal networks."),
         "job-publish",
       ]}

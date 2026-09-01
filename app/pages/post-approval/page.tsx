@@ -275,7 +275,7 @@ export default function PostApproval() {
   return (
     <NavAndSidebar
       pageInfo={[
-        "post approval",
+        "Post Approval",
         "The job vacancy will be posted to the careers page immediately once the hiring manager approves it.",
         "post-approval",
       ]}
