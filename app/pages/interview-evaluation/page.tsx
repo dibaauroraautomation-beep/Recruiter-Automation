@@ -1,16 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ComponentProps } from "react";
 import NavAndSidebar from "@/app/components/navAndSidebar";
 import TableComponent, { type TableData } from "@/app/components/TableComponent";
+import { useEvaluations } from "@/app/hooks/useEvaluations";
 
 type NavProps = ComponentProps<typeof NavAndSidebar>;
 
 /* ------------------------------------------------------------------ */
 /* Config                                                              */
 /* ------------------------------------------------------------------ */
-
+export const dynamic = "force-dynamic";
 const CANDIDATE_DATA_URL = "https://n8naurora.duckdns.org/webhook/candidate-data";
 const CONFIRMATION_MAIL_URL = "https://n8naurora.duckdns.org/webhook/sent-email";
 
@@ -23,9 +24,9 @@ type SortKey = "totalScore" | "cvScore" | "interviewScore" | "name";
 type SortOrder = "desc" | "asc";
 
 interface Candidate {
-  id: string;
+  id: string; // stable key — email when available
   name: string;
-  role: string; // job title from the form
+  role: string;
   email: string;
   cvScore: number;
 }
@@ -61,7 +62,7 @@ const STATUS_OPTIONS: { value: SelectionStatus; label: string }[] = [
 ];
 
 /* ------------------------------------------------------------------ */
-/* Webhook column mapping (same idea as candidate-scoring)             */
+/* Webhook column mapping                                              */
 /* ------------------------------------------------------------------ */
 
 const KEY_ALIASES: Record<string, string[]> = {
@@ -164,7 +165,7 @@ function CvScoreBar({ value }: { value: number }) {
   );
 }
 
-/** Interview score out of 100. Pen icon only until a score exists, then score + pen. */
+/** Pen icon only until a score exists, then score + pen. */
 function InterviewScoreCell({
   value,
   onEdit,
@@ -210,7 +211,7 @@ function TotalScoreCell({ value }: { value: number | null }) {
 
 export default function InterviewEvaluationPage() {
   const pageInfo: NavProps["pageInfo"] = [
-    "Interview Evaluation",
+    "Interview Evaluation and Final Selection",
     "Shortlisted candidates are reviewed here with their CV score, interview score and interviewer feedback before offers go out.",
     "interview-evaluation",
   ];
@@ -223,13 +224,45 @@ export default function InterviewEvaluationPage() {
     "WebHook_Url:InterviewEvaluation",
   ];
 
-  /* ---------------- fetched data ---------------- */
+  /* ---------------- fetched candidate data ---------------- */
   const [datas, setDatas] = useState<TableData | null>(null);
 
-  /* ---------------- recruiter input ---------------- */
-  const [interviewScores, setInterviewScores] = useState<Record<string, number>>({});
-  const [breakdowns, setBreakdowns] = useState<Record<string, Breakdown>>({});
-  const [statuses, setStatuses] = useState<Record<string, SelectionStatus>>({});
+  /* ---------------- persisted evaluations (Supabase) ---------------- */
+  const { rows: evals, loading: evalsLoading, saveEvaluation } = useEvaluations();
+
+  const interviewScores = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const row of Object.values(evals)) {
+      if (row.interview_score !== null && row.interview_score !== undefined) {
+        map[row.candidate_key] = Number(row.interview_score);
+      }
+    }
+    return map;
+  }, [evals]);
+
+  const statuses = useMemo(() => {
+    const map: Record<string, SelectionStatus> = {};
+    for (const row of Object.values(evals)) {
+      if (row.status) map[row.candidate_key] = row.status as SelectionStatus;
+    }
+    return map;
+  }, [evals]);
+
+  const feedbacks = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const row of Object.values(evals)) {
+      if (row.feedback) map[row.candidate_key] = row.feedback;
+    }
+    return map;
+  }, [evals]);
+
+  const sentMails = useMemo(() => {
+    const map: Record<string, boolean> = {};
+    for (const row of Object.values(evals)) {
+      if (row.mail_sent) map[row.candidate_key] = true;
+    }
+    return map;
+  }, [evals]);
 
   /* ---------------- ui state ---------------- */
   const [minScoreInput, setMinScoreInput] = useState<string>("83");
@@ -242,9 +275,8 @@ export default function InterviewEvaluationPage() {
   const [statusOpenFor, setStatusOpenFor] = useState<string | null>(null);
   const [toast, setToast] = useState<string>("");
   const [sendingMail, setSendingMail] = useState<string | null>(null);
-  const [sentMails, setSentMails] = useState<Record<string, boolean>>({});
-  /* ---------------- feedback ---------------- */
-  const [feedbacks, setFeedbacks] = useState<Record<string, string>>({});
+
+  /* ---------------- feedback modal state ---------------- */
   const [feedbackFor, setFeedbackFor] = useState<Candidate | null>(null);
   const [feedbackDraft, setFeedbackDraft] = useState<string>("");
   const [feedbackMode, setFeedbackMode] = useState<"view" | "edit">("edit");
@@ -273,23 +305,29 @@ export default function InterviewEvaluationPage() {
       const name = nameKey ? String(datas[nameKey][i] ?? "") : "";
       if (!name || name.toLowerCase() === "null") continue;
 
+      const email = emailKey ? String(datas[emailKey][i] ?? "") : "";
+
       list.push({
-        id: `row-${i}`,
+        // email is stable across reorders; index fallback only if email is missing
+        id: email && email.toLowerCase() !== "null" ? email : `row-${i}`,
         name,
         role: titleKey ? String(datas[titleKey][i] ?? "—") : "—",
-        email: emailKey ? String(datas[emailKey][i] ?? "") : "",
+        email,
         cvScore: scoreKey ? toNumber(datas[scoreKey][i]) : 0,
       });
     }
     return list;
   }, [datas]);
 
-  /* ---------------- total = average of CV score and interview score ---------------- */
-  function totalOf(candidate: Candidate): number | null {
-    const interview = interviewScores[candidate.id];
-    if (interview === undefined) return null;
-    return (candidate.cvScore + interview) / 2;
-  }
+  /* ---------------- total = average of CV and interview score ---------------- */
+  const totalOf = useCallback(
+    (candidate: Candidate): number | null => {
+      const interview = interviewScores[candidate.id];
+      if (interview === undefined) return null;
+      return (candidate.cvScore + interview) / 2;
+    },
+    [interviewScores]
+  );
 
   const rankedRows = useMemo(() => {
     const dir = sortOrder === "desc" ? 1 : -1;
@@ -300,21 +338,23 @@ export default function InterviewEvaluationPage() {
       total: totalOf(candidate),
     }));
 
-    // Candidates that have no interview score yet are always kept visible,
-    // otherwise nobody would ever be scoreable. Scored ones must clear the threshold.
-    // Delete the `t.total === null ||` part if you want a strict filter.
+    // Unscored candidates stay visible, otherwise nobody could ever be scored.
+    // Delete `t.total === null ||` for a strict filter.
     const ranked = withTotals
       .filter((t) => t.total === null || t.total >= minScore)
       .sort((a, b) => {
         if (sortKey === "name") {
-          return a.candidate.name.localeCompare(b.candidate.name) * (sortOrder === "desc" ? -1 : 1);
+          return (
+            a.candidate.name.localeCompare(b.candidate.name) *
+            (sortOrder === "desc" ? -1 : 1)
+          );
         }
         const pick = (row: typeof a) =>
           sortKey === "cvScore"
             ? row.candidate.cvScore
             : sortKey === "interviewScore"
-              ? row.interview ?? -1
-              : row.total ?? -1;
+            ? row.interview ?? -1
+            : row.total ?? -1;
         const primary = (pick(b) - pick(a)) * dir;
         if (primary !== 0) return primary;
         return a.candidate.name.localeCompare(b.candidate.name);
@@ -329,7 +369,7 @@ export default function InterviewEvaluationPage() {
         candidate.name.toLowerCase().includes(query) ||
         candidate.role.toLowerCase().includes(query)
     );
-  }, [candidates, interviewScores, minScore, search, sortKey, sortOrder]);
+  }, [candidates, interviewScores, minScore, search, sortKey, sortOrder, totalOf]);
 
   const confirmedCount = useMemo(
     () => Object.values(statuses).filter((s) => s === "selected" || s === "hired").length,
@@ -350,7 +390,7 @@ export default function InterviewEvaluationPage() {
   /* ---------------- score modal ---------------- */
   function openScoreModal(candidate: Candidate) {
     setScoreFor(candidate);
-    setScoreDraft(breakdowns[candidate.id] ?? EMPTY_BREAKDOWN);
+    setScoreDraft((evals[candidate.id]?.breakdown as Breakdown) ?? EMPTY_BREAKDOWN);
   }
 
   function draftTotal(draft: Breakdown): number {
@@ -361,15 +401,18 @@ export default function InterviewEvaluationPage() {
     }, 0);
   }
 
-  function submitScore() {
+  async function submitScore() {
     if (!scoreFor) return;
-    const id = scoreFor.id;
     const total = draftTotal(scoreDraft);
-    setBreakdowns((prev) => ({ ...prev, [id]: scoreDraft }));
-    setInterviewScores((prev) => ({ ...prev, [id]: total }));
+    const ok = await saveEvaluation(scoreFor.id, {
+      candidate_name: scoreFor.name,
+      job_title: scoreFor.role,
+      interview_score: total,
+      breakdown: scoreDraft,
+    });
+    if (!ok) setToast("Score shown locally but not saved. Check the Supabase connection.");
     setScoreFor(null);
     setScoreDraft(EMPTY_BREAKDOWN);
-    // TODO: POST { candidateId, breakdown, total } to n8n here if you want it persisted
   }
 
   /* ---------------- feedback modal ---------------- */
@@ -379,19 +422,33 @@ export default function InterviewEvaluationPage() {
     setFeedbackMode(mode);
   }
 
-  function saveFeedback() {
+  async function saveFeedback() {
     if (!feedbackFor) return;
-    const id = feedbackFor.id;
-    setFeedbacks((prev) => ({ ...prev, [id]: feedbackDraft.trim() }));
+    const ok = await saveEvaluation(feedbackFor.id, {
+      candidate_name: feedbackFor.name,
+      job_title: feedbackFor.role,
+      feedback: feedbackDraft.trim(),
+    });
+    if (!ok) setToast("Note shown locally but not saved. Check the Supabase connection.");
     setFeedbackFor(null);
     setFeedbackDraft("");
+  }
+
+  /* ---------------- status ---------------- */
+  async function changeStatus(candidate: Candidate, status: SelectionStatus) {
+    setStatusOpenFor(null);
+    const ok = await saveEvaluation(candidate.id, {
+      candidate_name: candidate.name,
+      job_title: candidate.role,
+      status,
+    });
+    if (!ok) setToast("Status shown locally but not saved. Check the Supabase connection.");
   }
 
   /* ---------------- mail ---------------- */
   async function sendConfirmationMail(candidate: Candidate) {
     setSendingMail(candidate.id);
 
-    // full row payload
     const payload = {
       rowId: candidate.id,
       name: candidate.name,
@@ -399,7 +456,7 @@ export default function InterviewEvaluationPage() {
       jobTitle: candidate.role,
       cvScore: candidate.cvScore,
       interviewScore: interviewScores[candidate.id] ?? null,
-      interviewBreakdown: breakdowns[candidate.id] ?? null,
+      interviewBreakdown: evals[candidate.id]?.breakdown ?? null,
       totalScore: totalOf(candidate),
       status: statuses[candidate.id] ?? "recommended",
       feedback: feedbacks[candidate.id] ?? "",
@@ -414,7 +471,6 @@ export default function InterviewEvaluationPage() {
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-      // n8n returns something like { status: "success" } — accept a few shapes
       let ok = true;
       try {
         const data = await res.json();
@@ -427,7 +483,11 @@ export default function InterviewEvaluationPage() {
 
       if (!ok) throw new Error("Webhook reported a failure");
 
-      setSentMails((prev) => ({ ...prev, [candidate.id]: true }));
+      await saveEvaluation(candidate.id, {
+        candidate_name: candidate.name,
+        job_title: candidate.role,
+        mail_sent: true,
+      });
       setToast(`Confirmation mail sent to ${candidate.name}.`);
     } catch {
       setToast(`Could not send the mail to ${candidate.name}. Check the webhook.`);
@@ -572,7 +632,7 @@ export default function InterviewEvaluationPage() {
               {rankedRows.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="px-3 py-10 text-center text-slate-500">
-                    {datas === null
+                    {datas === null || evalsLoading
                       ? "Loading candidates…"
                       : `No candidate reached ${minScore}. Lower the score to see more people.`}
                   </td>
@@ -586,12 +646,12 @@ export default function InterviewEvaluationPage() {
                     chosen === "not_selected"
                       ? "bg-rose-50"
                       : chosen === "hired"
-                        ? "bg-violet-50"
-                        : chosen === "selected"
-                          ? "bg-sky-50"
-                          : isRecommended
-                            ? "bg-emerald-50/50"
-                            : "bg-white";
+                      ? "bg-violet-50"
+                      : chosen === "selected"
+                      ? "bg-sky-50"
+                      : isRecommended
+                      ? "bg-emerald-50/50"
+                      : "bg-white";
 
                   return (
                     <tr key={candidate.id} className={rowTone}>
@@ -633,19 +693,19 @@ export default function InterviewEvaluationPage() {
                               chosen === "selected"
                                 ? "bg-sky-500 text-white"
                                 : chosen === "not_selected"
-                                  ? "bg-rose-100 text-rose-600 ring-1 ring-rose-300"
-                                  : chosen === "hired"
-                                    ? "bg-violet-600 text-white"
-                                    : isRecommended
-                                      ? "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-300"
-                                      : "bg-slate-100 text-slate-500 ring-1 ring-slate-300",
+                                ? "bg-rose-100 text-rose-600 ring-1 ring-rose-300"
+                                : chosen === "hired"
+                                ? "bg-violet-600 text-white"
+                                : isRecommended
+                                ? "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-300"
+                                : "bg-slate-100 text-slate-500 ring-1 ring-slate-300",
                             ].join(" ")}
                           >
                             {chosen
                               ? STATUS_OPTIONS.find((o) => o.value === chosen)?.label
                               : isRecommended
-                                ? "Recommended"
-                                : "Pending"}
+                              ? "Recommended"
+                              : "Pending"}
                             <ChevronIcon />
                           </button>
 
@@ -661,13 +721,7 @@ export default function InterviewEvaluationPage() {
                                   <button
                                     key={option.value}
                                     type="button"
-                                    onClick={() => {
-                                      setStatuses((prev) => ({
-                                        ...prev,
-                                        [candidate.id]: option.value,
-                                      }));
-                                      setStatusOpenFor(null);
-                                    }}
+                                    onClick={() => changeStatus(candidate, option.value)}
                                     className={[
                                       "block w-full rounded-md px-3 py-2 text-left text-sm",
                                       chosen === option.value
@@ -723,8 +777,8 @@ export default function InterviewEvaluationPage() {
                           {sentMails[candidate.id]
                             ? "Confirmation Sent"
                             : sendingMail === candidate.id
-                              ? "Sending…"
-                              : "Send Confirmation Mail"}
+                            ? "Sending…"
+                            : "Send Confirmation Mail"}
                         </button>
                       </td>
                     </tr>

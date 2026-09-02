@@ -6,13 +6,12 @@ type Lang = "en" | "de";
 
 const t: Record<Lang, Record<string, string>> = {
   en: {
-    badge: "Hire Top Talent",
-    hero_title_1: "Post a Job,",
-    hero_title_2: "Hire the Best",
-    hero_desc: "Create a job posting in minutes and get matched with qualified candidates \u2014 powered by AI.",
+    hero_title_1: "Recruitment.,",
+    hero_title_2: "Fully Automated",
+    hero_desc: "From job posting to final selection, every stage runs on one system \u2014 screening, scoring, interview evaluation and offers, handled end to end.",
     login: "Login",
     about: "About",
-    get_started: "Post a Job",
+    get_started: "Get Started",
     learn_more: "Learn More",
     feat_1_title: "AI Candidate Matching",
     feat_1_desc: "Our AI analyzes every applicant and matches the most qualified candidates to your role instantly.",
@@ -29,12 +28,12 @@ const t: Record<Lang, Record<string, string>> = {
   },
   de: {
     badge: "Top-Talente einstellen",
-    hero_title_1: "Stelle eine Stelle ein,",
-    hero_title_2: "Stelle die Besten ein",
-    hero_desc: "Erstellen Sie in Minuten eine Stellenausschreibung und finden Sie qualifizierte Kandidaten \u2014 von KI unterst\u00fctzt.",
+    hero_title_1: "Recruiting.,",
+    hero_title_2: "Vollautomatisiert",
+    hero_desc: "Von der Stellenausschreibung bis zur finalen Auswahl l\u00e4uft jede Phase \u00fcber ein System \u2014 Vorauswahl, Bewertung, Interviewauswertung und Angebote, durchg\u00e4ngig abgewickelt.",
     login: "Anmelden",
     about: "\u00DCber uns",
-    get_started: "Stelle einstellen",
+    get_started: "Jetzt starten",
     learn_more: "Mehr erfahren",
     feat_1_title: "KI-Kandidatenabgleich",
     feat_1_desc: "Unsere KI analysiert jeden Bewerber und bringt die qualifiziertesten Kandidaten sofort mit Ihrer Stelle zusammen.",
@@ -88,7 +87,7 @@ export default function Home() {
               </svg>
             </div>
             <div className="leading-tight">
-              <span className="block text-lg font-bold text-slate-900">CareerAI</span>
+              <span className="block text-lg font-bold text-slate-900">Recruitment Automation</span>
               <span className="block text-[10px] font-medium text-indigo-600">{t[lang].badge}</span>
             </div>
           </div>
@@ -134,18 +133,12 @@ export default function Home() {
             <p className="mt-5 text-base sm:text-lg text-slate-600 max-w-xl mx-auto leading-relaxed">
               {t[lang].hero_desc}
             </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-9">
+            <div className="flex items-center justify-center mt-9">
               <Link
-                href="pages/login?tab=register"
-                className="px-7 py-3 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-blue-600 rounded-xl hover:from-indigo-700 hover:to-blue-700 transition shadow-lg shadow-indigo-900/20"
+                href="/pages/job-publish"
+                className="px-8 py-3.5 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-blue-600 rounded-xl hover:from-indigo-700 hover:to-blue-700 transition shadow-lg shadow-indigo-900/20"
               >
                 {t[lang].get_started}
-              </Link>
-              <Link
-                href="pages/about"
-                className="px-7 py-3 text-sm font-semibold text-slate-700 border border-slate-300 bg-white rounded-xl hover:border-indigo-600 hover:text-indigo-600 transition"
-              >
-                {t[lang].learn_more}
               </Link>
             </div>
           </div>
