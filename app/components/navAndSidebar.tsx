@@ -28,9 +28,9 @@ interface PageItem {
 }
 
 const pathVar: PageItem[] = [
-  { name: "Job Requisitions", path: "job-publish", icon: <PiSuitcaseSimpleFill className="w-4 h-4" /> },
+  { name: "Job Requisitions", path: "job-requisitions", icon: <PiSuitcaseSimpleFill className="w-4 h-4" /> },
   { name: "Post Approval", path: "post-approval", icon: <PiCheckCircleFill className="w-4 h-4" /> },
-  { name: "Candidate Ranking", path: "candidate-scoring", icon: <PiRankingLight className="w-4 h-4" /> },
+  { name: "Candidate Ranking", path: "candidate-ranking", icon: <PiRankingLight className="w-4 h-4" /> },
   { name: "Shortlisted Candidates", path: "shortlisted-candidates", icon: <FaUserCheck className="w-3.5 h-3.5" /> },
   { name: "Interview Evaluation", path: "interview-evaluation", icon: <FaClipboardCheck className="w-3.5 h-3.5" /> },
   { name: "Settings", path: "setting", icon: <FaSlidersH className="w-3.5 h-3.5" /> },

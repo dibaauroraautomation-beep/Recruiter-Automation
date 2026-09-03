@@ -3,7 +3,7 @@ import Link from "next/link";
 import NavAndSidebar from "@/app/components/navAndSidebar";
 import GoogleSheetReader from "@/app/components/GoogleSheetReader";
 import InteractiveBadge from "@/app/components/IneractiveBadge";
-import { useState, useCallback, useEffect, ReactNode } from "react";
+import { useState, useCallback, useEffect, useMemo, ReactNode } from "react";
 import { useUser } from "@/app/contexts/UserContext";
 import Card from "@/app/components/FeatureCard";
 import { PiSuitcaseSimpleFill } from "react-icons/pi";
@@ -563,6 +563,42 @@ async function TableComponentScapDatabackEndModify(
   return result;
 }
 
+// Row-wise search across a column-oriented dataset: keeps any row where
+// at least one column's value contains the (case-insensitive) search term.
+function filterColumnData(
+  data: ScapColumnData | null,
+  term: string,
+): ScapColumnData | null {
+  if (!data) return data;
+
+  const query = term.trim().toLowerCase();
+  if (!query) return data;
+
+  const headers = Object.keys(data);
+  if (headers.length === 0) return data;
+
+  const rowCount = Math.max(...headers.map((h) => data[h]?.length ?? 0));
+
+  const matchingRows: number[] = [];
+  for (let i = 0; i < rowCount; i++) {
+    const rowMatches = headers.some((h) => {
+      const cell = data[h]?.[i];
+      return (
+        cell !== undefined &&
+        cell !== null &&
+        String(cell).toLowerCase().includes(query)
+      );
+    });
+    if (rowMatches) matchingRows.push(i);
+  }
+
+  const filtered: ScapColumnData = {};
+  headers.forEach((h) => {
+    filtered[h] = matchingRows.map((i) => data[h]?.[i] ?? "null");
+  });
+  return filtered;
+}
+
 export default function TableComponent({
   children,
   title,
@@ -574,7 +610,7 @@ export default function TableComponent({
   dataBaseId ,
 }: {
   children?: ReactNode | ((data: ScapColumnData | null) => ReactNode);
-  title: string;
+  title: ReactNode;
   cols: Record<string, string>[];
   userId: string;
   baseUrl: string;
@@ -587,6 +623,23 @@ export default function TableComponent({
   const colsKey = JSON.stringify(cols);
   const [datas, setDatas] = useState<ScapColumnData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // Recomputed whenever the raw data or the search term changes; this is
+  // the single source of truth handed to children and to onData below.
+  const filteredDatas = useMemo(
+    () => filterColumnData(datas, searchTerm),
+    [datas, searchTerm],
+  );
+
+  // Push the (possibly filtered) data up to the parent any time it changes,
+  // so pages that derive their own rows from `onData` re-filter automatically.
+  useEffect(() => {
+    if (filteredDatas) {
+      onData?.(filteredDatas);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredDatas]);
 
   useEffect(() => {
     let cancelled = false;
@@ -599,7 +652,6 @@ export default function TableComponent({
       Promise.resolve().then(() => {
         if (!cancelled) {
           setDatas(cached);
-          onData?.(cached);
         }
       });
       return;
@@ -625,7 +677,6 @@ export default function TableComponent({
           setError(null);
           setDatas(data);
           console.log("hmm", data);
-          onData?.(data);
         }
       })
       .catch((error) => {
@@ -734,6 +785,18 @@ export default function TableComponent({
     return `${((count / metrics.totalApplications) * 100).toFixed(1)}%`;
   };
 
+  // Search applies to the built-in fallback table too (used when no
+  // children are passed in).
+  const filteredApplications = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    if (!query) return applications;
+    return applications.filter((app) =>
+      [app.role, app.company, app.location, app.workplace, app.status?.text]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(query)),
+    );
+  }, [applications, searchTerm]);
+
   return (
     <div>
       <Card
@@ -760,6 +823,8 @@ export default function TableComponent({
                 </svg>
                 <input
                   type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Search jobs, companies..."
                   className="w-full text-xs text-slate-700 outline-none placeholder-slate-400 bg-transparent"
                 />
@@ -772,7 +837,7 @@ export default function TableComponent({
             <span className="text-xs font-normal text-slate-400">
               Showing <span className="font-medium text-slate-600">1</span> to{" "}
               <span className="font-medium text-slate-600">
-                {applications.length}
+                {filteredApplications.length}
               </span>{" "}
               of{" "}
               <span className="font-medium text-slate-600">
@@ -786,7 +851,7 @@ export default function TableComponent({
         <div className="w-full bg-white border border-slate-100 rounded-2xl shadow-xs overflow-hidden">
           <div className="overflow-x-auto">
             {typeof children === "function" ? (
-              <>{children(datas)}</>
+              <>{children(filteredDatas)}</>
             ) : children ? (
               <>{children}</>
             ) : (
@@ -801,7 +866,7 @@ export default function TableComponent({
                 </thead>
 
                 <tbody className="divide-y divide-slate-100/70">
-                  {applications.map((app, index) => {
+                  {filteredApplications.map((app, index) => {
                     const googleSheetRowNumber = index + 2;
                     return (
                       <tr

@@ -53,7 +53,7 @@ const sendCandidateAction = (
 export default function Dashboard() {
   
   const WebHook_Url = "sdfgh";
-  const filterScore:number = 50;
+  const [filterScore, setFilterScore] = useState<number>(50);
   const t = useT();
   const { user } = useUser();
   console.log("user.WebHook_Ur:", user.WebHook_Url["Dashboard"]);
@@ -129,7 +129,7 @@ export default function Dashboard() {
     }))
       .filter((c) => c.score !== null && c.score > filterScore)
       .sort((a, b) => a.rank - b.rank);
-  }, [datas]);
+  }, [datas, filterScore]);
 
   const allSelected =
     candidates.length > 0 && selectedIds.length === candidates.length;
@@ -246,7 +246,23 @@ export default function Dashboard() {
         ]}
       >
         <TableComponent
-          title={`Candidates with scores > ${filterScore}%`}
+          title={
+            <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+              Candidates with scores {">"}
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={filterScore}
+                onChange={(e) => {
+                  const next = Number(e.target.value);
+                  setFilterScore(Number.isFinite(next) ? next : 0);
+                }}
+                className="w-14 px-1.5 py-0.5 text-sm font-bold text-slate-800 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500"
+              />
+              %
+            </span>
+          }
           cols={[
             { Rank: "RANK(Score,Score,0)" },
             { CandidateName: "" },

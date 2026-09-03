@@ -364,7 +364,7 @@ export default function JobPublish() {
       pageInfo={[
         t("Job Requisitions"),
         t("Creating, optimizing, and distributing open roles across multiple external job boards, career pages, and internal networks."),
-        "job-publish",
+        "job-requisitions",
       ]}
       user={[
         user.name,
