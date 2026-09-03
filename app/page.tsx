@@ -135,7 +135,7 @@ export default function Home() {
             </p>
             <div className="flex items-center justify-center mt-9">
               <Link
-                href="/pages/job-publish"
+                href="/pages/job-requisitions"
                 className="px-8 py-3.5 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-blue-600 rounded-xl hover:from-indigo-700 hover:to-blue-700 transition shadow-lg shadow-indigo-900/20"
               >
                 {t[lang].get_started}
