@@ -15,6 +15,22 @@ function FieldSpinner() {
     </div>
   );
 }
+// The webhook now returns skills as { required, preferred } instead of a plain string.
+// Both shapes are handled so an older response still works.
+function normalizeSkills(raw: unknown): string {
+  if (!raw) return "";
+  if (typeof raw === "string") return raw;
+
+  if (typeof raw === "object") {
+    const obj = raw as { required?: unknown; preferred?: unknown };
+    const asText = (v: unknown) =>
+      Array.isArray(v) ? v.join(", ") : typeof v === "string" ? v : "";
+    // only the required list goes into the field
+    return asText(obj.required);
+  }
+
+  return "";
+}
 export default function JobPublish() {
   const { user } = useUser();
   const { t } = useLanguage();
@@ -78,10 +94,12 @@ export default function JobPublish() {
         const data = await res.json();
         const result = Array.isArray(data) ? data[0] : data; // n8n wraps output in an array
 
+        const skillsText = normalizeSkills(result.skills);
+
         setForm((prev) => ({
           ...prev,
           description: result.description || prev.description,
-          skills: result.skills || prev.skills,
+          skills: skillsText || prev.skills,
         }));
       } catch (err) {
         console.error("title-fetch webhook error:", err);
