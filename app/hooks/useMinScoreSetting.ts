@@ -5,7 +5,7 @@ import { supabase } from "@/app/lib/supabaseClient"; // match your existing clie
 
 const SETTINGS_TABLE = "app_settings";
 const MIN_SCORE_KEY = "interview_min_score";
-const DEFAULT_MIN_SCORE = "83";
+const DEFAULT_MIN_SCORE = "43";
 
 export function useMinScoreSetting() {
   const [minScoreInput, setMinScoreInput] = useState<string>(DEFAULT_MIN_SCORE);
