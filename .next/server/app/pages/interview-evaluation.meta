@@ -1,0 +1,16 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/pages/layout,_N_T_/pages/interview-evaluation/layout,_N_T_/pages/interview-evaluation/page,_N_T_/pages/interview-evaluation"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/pages/interview-evaluation/__PAGE__",
+    "/pages/interview-evaluation",
+    "/pages",
+    "/_index",
+    "/_head"
+  ]
+}
