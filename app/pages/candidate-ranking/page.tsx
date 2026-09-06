@@ -397,7 +397,7 @@ export default function CandidateScoring() {
                           rel="noopener noreferrer"
                           className="text-sky-600 hover:underline"
                         >
-                          {t("Open")}
+                          {t("View CV")}
                         </a>
                       ) : (
                         <span className="block truncate" title={value}>
