@@ -367,6 +367,7 @@ export default function InterviewEvaluationPage() {
   const [feedbackFor, setFeedbackFor] = useState<Candidate | null>(null);
   const [feedbackDraft, setFeedbackDraft] = useState<string>("");
   const [feedbackMode, setFeedbackMode] = useState<"view" | "edit">("edit");
+  const [detailForId, setDetailForId] = useState<string | null>(null);
 
   const minScore = useMemo(() => {
     const parsed = Number(minScoreInput);
@@ -480,6 +481,10 @@ export default function InterviewEvaluationPage() {
         candidate.role.toLowerCase().includes(query)
     );
   }, [candidates, interviewScores, minScore, search, sortKey, sortOrder, totalOf]);
+
+  const detailCandidate = candidates.find((c) => c.id === detailForId) ?? null;
+  const detailInterview = detailCandidate ? interviewScores[detailCandidate.id] ?? null : null;
+  const detailTotal = detailCandidate ? totalOf(detailCandidate) : null;
 
   const confirmedCount = useMemo(
     () => Object.values(statuses).filter((s) => s === "selected" || s === "hired").length,
@@ -804,7 +809,15 @@ export default function InterviewEvaluationPage() {
                         let cellContent: any = "—";
                         switch (col.key) {
                           case "fullname":
-                            cellContent = candidate.name;
+                            cellContent = (
+                              <button
+                                type="button"
+                                onClick={() => setDetailForId(candidate.id)}
+                                className="text-left font-medium text-slate-800 hover:text-teal-700 hover:underline"
+                              >
+                                {candidate.name}
+                              </button>
+                            );
                             break;
                           case "formtitle":
                             cellContent = candidate.role;
@@ -989,17 +1002,6 @@ export default function InterviewEvaluationPage() {
 
         {/* Card footer */}
         <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <p className="text-sm text-slate-500">
-            Showing {rankedRows.length} of {candidates.length} candidates ·{" "}
-            {confirmedCount} confirmed for an offer
-          </p>
-          <button
-            type="button"
-            onClick={finalizeSelection}
-            className="rounded-lg bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-800"
-          >
-            Finalize Selection &amp; Send Offers
-          </button>
         </div>
 
         {toast ? (
@@ -1116,6 +1118,103 @@ export default function InterviewEvaluationPage() {
                   Save note
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {/* ---------------- Candidate detail modal ---------------- */}
+      {detailCandidate ? (
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-slate-900/40 p-4">
+          <div className="w-full max-w-lg rounded-xl bg-white shadow-xl flex flex-col max-h-[85vh]">
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 shrink-0">
+              <h2 className="text-lg font-semibold text-slate-900">Candidate Details</h2>
+              <button
+                type="button"
+                onClick={() => setDetailForId(null)}
+                className="rounded-md px-2 py-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-5 py-4 text-sm space-y-3">
+              <div className="flex gap-2">
+                <span className="font-bold text-slate-800 shrink-0">Candidate Name:</span>
+                <span className="text-slate-600 break-words">{detailCandidate.name}</span>
+              </div>
+              <div className="flex gap-2">
+                <span className="font-bold text-slate-800 shrink-0">Job Title:</span>
+                <span className="text-slate-600 break-words">{detailCandidate.role}</span>
+              </div>
+              <div className="flex gap-2">
+                <span className="font-bold text-slate-800 shrink-0">Email:</span>
+                <span className="text-slate-600 break-words">{detailCandidate.email || "—"}</span>
+              </div>
+              <div className="flex gap-2">
+                <span className="font-bold text-slate-800 shrink-0">Phone No:</span>
+                <span className="text-slate-600 break-words">{detailCandidate.phone || "—"}</span>
+              </div>
+              <div className="flex gap-2">
+                <span className="font-bold text-slate-800 shrink-0">CV Link:</span>
+                {detailCandidate.cvLink ? (
+                  <a href={detailCandidate.cvLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline break-words">
+                    View CV
+                  </a>
+                ) : (
+                  <span className="text-slate-600">—</span>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <span className="font-bold text-slate-800 shrink-0">ATS / CV Score:</span>
+                <span className="text-slate-600">{detailCandidate.cvScore}%</span>
+              </div>
+              <div className="flex gap-2">
+                <span className="font-bold text-slate-800 shrink-0">AI Confidence Level:</span>
+                <span className="text-slate-600 break-words">
+                  {detailCandidate.aiConfidenceLevel ? `${detailCandidate.aiConfidenceLevel}%` : "—"}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <span className="font-bold text-slate-800 shrink-0">Strengths:</span>
+                <span className="text-slate-600 whitespace-pre-wrap break-words">{detailCandidate.strengths || "—"}</span>
+              </div>
+              <div className="flex gap-2">
+                <span className="font-bold text-slate-800 shrink-0">Potential Gap and Risk:</span>
+                <span className="text-slate-600 whitespace-pre-wrap break-words">{detailCandidate.gapRisk || "—"}</span>
+              </div>
+              <div className="flex gap-2">
+                <span className="font-bold text-slate-800 shrink-0">Summary:</span>
+                <span className="text-slate-600 whitespace-pre-wrap break-words">{detailCandidate.summary || "—"}</span>
+              </div>
+              <div className="flex gap-2">
+                <span className="font-bold text-slate-800 shrink-0">Expected Salary:</span>
+                <span className="text-slate-600 break-words">{detailCandidate.salary || "—"}</span>
+              </div>
+              <div className="flex gap-2">
+                <span className="font-bold text-slate-800 shrink-0">Notice Period:</span>
+                <span className="text-slate-600 break-words">{detailCandidate.noticePeriod || "—"}</span>
+              </div>
+              <div className="flex gap-2">
+                <span className="font-bold text-slate-800 shrink-0">Skills:</span>
+                <span className="text-slate-600 whitespace-pre-wrap break-words">{detailCandidate.skills || "—"}</span>
+              </div>
+              <div className="flex gap-2">
+                <span className="font-bold text-slate-800 shrink-0">Experience:</span>
+                <span className="text-slate-600 whitespace-pre-wrap break-words">{detailCandidate.experience || "—"}</span>
+              </div>
+              <div className="flex gap-2">
+                <span className="font-bold text-slate-800 shrink-0">AI Assessment:</span>
+                <span className="text-slate-600 whitespace-pre-wrap break-words">{detailCandidate.aiAssessment || "—"}</span>
+              </div>
+              <div className="flex gap-2">
+                <span className="font-bold text-slate-800 shrink-0">Interview Score:</span>
+                <span className="text-slate-600">{detailInterview !== null ? detailInterview : ""}</span>
+              </div>
+              <div className="flex gap-2">
+                <span className="font-bold text-slate-800 shrink-0">Total Score:</span>
+                <span className="text-slate-600">{detailTotal !== null ? detailTotal.toFixed(1) : ""}</span>
+              </div>
             </div>
           </div>
         </div>
