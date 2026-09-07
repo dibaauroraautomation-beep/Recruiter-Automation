@@ -2,9 +2,20 @@
 import NavAndSidebar from "@/app/components/navAndSidebar";
 import TableComponent, { type TableData } from "@/app/components/TableComponent";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useT } from "@/app/contexts/LanguageContext";
 import { useUser } from "@/app/contexts/UserContext";
+
+type CandidateEntry = {
+  label: string;
+  tasks: string[];
+};
+
+type EducationEntry = {
+  degree: string;
+  institute: string;
+  date: string;
+};
 
 type Candidate = {
   id: number;
@@ -14,6 +25,12 @@ type Candidate = {
   score: number | null;
   skills: string[];
   email: string;
+  profile: string;
+  address: string;
+  phone: string;
+  links: string[];
+  education: EducationEntry[];
+  experience: CandidateEntry[];
 };
 
 const sendCandidateAction = (
@@ -59,6 +76,7 @@ export default function Dashboard() {
   console.log("user.WebHook_Ur:", user.WebHook_Url["Dashboard"]);
 
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [expandedIds, setExpandedIds] = useState<number[]>([]);
   const [datas, setDatas] = useState<TableData | null>(null);
 
   const candidates: Candidate[] = useMemo(() => {
@@ -84,12 +102,89 @@ export default function Dashboard() {
       return raw.split(",").map((s) => s.trim()).filter(Boolean);
     };
 
+    const cleanValue = (raw?: string): string => {
+      if (!raw || raw === "null") return "";
+      return raw.trim();
+    };
+
+    // Education/experience come in as loosely-formed JSON objects, e.g.
+    // {"ex1":["task","task1"],"ex2":["task2"]} - sometimes with trailing
+    // commas or stray characters. Parse leniently, and if that fails, fall
+    // back to showing the raw text rather than dropping the data.
+    const parseEntryMap = (raw: string | undefined, prefix: string): CandidateEntry[] => {
+      const cleaned = cleanValue(raw);
+      if (!cleaned) return [];
+      try {
+        const jsonSafe = cleaned.replace(/,(\s*[}\]])/g, "$1");
+        const parsed = JSON.parse(jsonSafe);
+        if (parsed && typeof parsed === "object") {
+          const entries = Object.values(parsed as Record<string, unknown>);
+          if (entries.length > 0) {
+            return entries.map((value, idx) => ({
+              label: `${prefix} ${idx + 1}`,
+              tasks: Array.isArray(value)
+                ? value.map(String)
+                : [String(value)],
+            }));
+          }
+        }
+      } catch {
+        // not valid JSON, fall through to showing the raw text
+      }
+      return [{ label: prefix, tasks: [cleaned] }];
+    };
+
+    const parseLinks = (raw?: string): string[] => {
+      const cleaned = cleanValue(raw);
+      if (!cleaned) return [];
+      return cleaned
+        .split(/[\n,]+/)
+        .map((s) => s.trim())
+        .filter((s) => s && s.toLowerCase() !== "null");
+    };
+
+    // The "education" column stores per-entry sub-fields under keys like
+    // "ed1_ki" (degree), "ed1_kob" (date), "ed1_kun"/"ed1_ko_un" (institute).
+    // The surrounding JSON is often malformed, so pull out "key":"value"
+    // pairs directly with a regex instead of relying on JSON.parse.
+    const parseEducation = (raw?: string): EducationEntry[] => {
+      const cleaned = cleanValue(raw);
+      if (!cleaned) return [];
+
+      const pairRegex = /"([a-zA-Z]+\d+)_([a-zA-Z_]+)"\s*:\s*"([^"]*)"/g;
+      const groups = new Map<string, Record<string, string>>();
+      let match: RegExpExecArray | null;
+      while ((match = pairRegex.exec(cleaned)) !== null) {
+        const [, prefix, suffix, value] = match;
+        if (!groups.has(prefix)) groups.set(prefix, {});
+        groups.get(prefix)![suffix] = value;
+      }
+
+      if (groups.size === 0) {
+        // Doesn't match the key:value shape - show the raw text as the
+        // degree line rather than dropping it.
+        return [{ degree: cleaned, institute: "", date: "" }];
+      }
+
+      return Array.from(groups.values()).map((fields) => ({
+        degree: fields["ki"] ?? Object.values(fields)[0] ?? "",
+        institute: fields["kun"] ?? fields["ko_un"] ?? "",
+        date: fields["kob"] ?? "",
+      }));
+    };
+
     const nameCol = col("CandidateName");
     const roleCol = col("CurrentRole");
     const scoreCol = col("Score");
     const skillsCol = col("Skills");
     const rankCol = col("Rank");
     const emailCol = col("email");
+    const profileCol = col("Profile");
+    const addressCol = col("address");
+    const educationCol = col("education");
+    const experienceCol = col("experience");
+    const linksCol = col("links");
+    const phoneCol = col("phone");
 
     const rowCount = Math.max(
       nameCol.length,
@@ -98,6 +193,12 @@ export default function Dashboard() {
       skillsCol.length,
       rankCol.length,
       emailCol.length,
+      profileCol.length,
+      addressCol.length,
+      educationCol.length,
+      experienceCol.length,
+      linksCol.length,
+      phoneCol.length,
     );
 
     if (rowCount === 0 && keys.length > 0) {
@@ -126,6 +227,12 @@ export default function Dashboard() {
           ? parseFloat(rankCol[i])
           : i + 1,
       email: emailCol[i] && emailCol[i] !== "null" ? emailCol[i] : "",
+      profile: cleanValue(profileCol[i]),
+      address: cleanValue(addressCol[i]),
+      phone: cleanValue(phoneCol[i]),
+      links: parseLinks(linksCol[i]),
+      education: parseEducation(educationCol[i]),
+      experience: parseEntryMap(experienceCol[i], "Experience"),
     }))
       .filter((c) => c.score !== null && c.score > filterScore)
       .sort((a, b) => a.rank - b.rank);
@@ -141,6 +248,22 @@ export default function Dashboard() {
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
     );
+
+  const toggleExpand = (id: number) =>
+    setExpandedIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    );
+
+  const getInitials = (name: string) =>
+    name
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((w) => w[0]?.toUpperCase())
+      .join("") || "?";
+
+  const toHref = (link: string) =>
+    /^https?:\/\//i.test(link) ? link : `https://${link}`;
 
   const [toast, setToast] = useState<
     { type: "info" | "success" | "error"; message: string } | null
@@ -217,6 +340,10 @@ export default function Dashboard() {
 
   return (
     <div>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+      />
       {toast && (
         <div
           role="status"
@@ -271,6 +398,12 @@ export default function Dashboard() {
             { Skills: "" },
             { InterviewInvitation: "" },
             { email: "" },
+            { Profile: "" },
+            { address: "" },
+            { experience: "" },
+            { phone: "" },
+            { links: "" },
+            { education: "" },
           ]}
           baseUrl="https://n8naurora.duckdns.org/webhook/dataFetch"
           // baseUrl="https://n8naurora.duckdns.org/webhook-test/dataFetch"
@@ -306,7 +439,8 @@ export default function Dashboard() {
             <table className="w-full text-left border-collapse min-w-[980px]">
             <thead>
               <tr className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 bg-slate-50/70">
-                <th className="py-3.5 px-5 rounded-tl-xl">Rank</th>
+                <th className="py-3.5 px-5 rounded-tl-xl"></th>
+                <th className="py-3.5 px-5">Rank</th>
                 <th className="py-3.5 px-5">Candidate Name</th>
                 <th className="py-3.5 px-5">Current Role</th>
                 <th className="py-3.5 px-5">Score (%)</th>
@@ -329,7 +463,7 @@ export default function Dashboard() {
               {candidates.length === 0 && (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={8}
                     className="py-10 text-center text-xs text-slate-400"
                   >
                     Loading candidates…
@@ -337,10 +471,33 @@ export default function Dashboard() {
                 </tr>
               )}
               {candidates.map((candidate) => (
+                <Fragment key={candidate.id}>
                 <tr
-                  key={candidate.id}
                   className="group transition-colors hover:bg-slate-50/60"
                 >
+                  <td className="py-4 px-5 text-center">
+                    <button
+                      type="button"
+                      onClick={() => toggleExpand(candidate.id)}
+                      aria-label={expandedIds.includes(candidate.id) ? "Hide candidate CV" : "Show candidate CV"}
+                      aria-expanded={expandedIds.includes(candidate.id)}
+                      className="mx-auto flex items-center justify-center w-6 h-6 rounded-md text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+                    >
+                      <svg
+                        className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                          expandedIds.includes(candidate.id) ? "rotate-180" : ""
+                        }`}
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M6 9l6 6 6-6" />
+                      </svg>
+                    </button>
+                  </td>
                   <td className="py-4 px-5">
                     <div className="w-7 h-7 rounded-lg bg-slate-800 flex items-center justify-center text-white text-xs font-bold shadow-sm">
                       {candidate.rank}
@@ -409,6 +566,226 @@ export default function Dashboard() {
                     </div>
                   </td>
                 </tr>
+                {expandedIds.includes(candidate.id) && (
+                    <tr>
+                      <td colSpan={8} className="px-5 pb-5 pt-0">
+                        <div
+                          style={{ fontFamily: "'Manrope', system-ui, sans-serif" }}
+                          className="rounded-xl overflow-hidden shadow-md ring-1 ring-slate-200 flex flex-col sm:flex-row bg-white"
+                        >
+
+                          {/* Sidebar */}
+                          <div
+                            style={{ width: "280px", background: "#17181C", color: "#FFFFFF", padding: "36px 28px" }}
+                            className="w-full sm:w-[280px] shrink-0 flex flex-col gap-[26px]"
+                          >
+                            <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                              <div
+                                style={{
+                                  width: "56px",
+                                  height: "56px",
+                                  borderRadius: "50%",
+                                  background: "#F2A93B",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  fontSize: "18px",
+                                  fontWeight: 700,
+                                  color: "#17181C",
+                                }}
+                              >
+                                {getInitials(candidate.name)}
+                              </div>
+                              <div>
+                                <div style={{ fontSize: "21px", fontWeight: 800, lineHeight: 1.15 }}>
+                                  {candidate.name}
+                                </div>
+                                <div style={{ fontSize: "12.5px", fontWeight: 600, color: "#F2A93B", marginTop: "5px" }}>
+                                  {candidate.currentRole}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div style={{ display: "flex", flexDirection: "column", gap: "9px" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", color: "rgba(255,255,255,0.75)" }}>
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M4 4h16v16H4z" /><path d="M4 6l8 7 8-7" />
+                                </svg>
+                                <span>{candidate.email || "Not on file"}</span>
+                              </div>
+                              <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", color: "rgba(255,255,255,0.75)" }}>
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3.1-8.6A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .3 2 .6 3a2 2 0 0 1-.5 2.1L8 10a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c1 .3 2 .5 3 .6a2 2 0 0 1 1.7 2z" />
+                                </svg>
+                                <span>{candidate.phone || "Not on file"}</span>
+                              </div>
+                              <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", color: "rgba(255,255,255,0.75)" }}>
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M21 10c0 6-9 12-9 12s-9-6-9-12a9 9 0 1 1 18 0z" /><circle cx="12" cy="10" r="3" />
+                                </svg>
+                                <span>{candidate.address || "Not on file"}</span>
+                              </div>
+                              <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", color: "rgba(255,255,255,0.75)" }}>
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1.2 1.1" /><path d="M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1.1-1.1" />
+                                </svg>
+                                {candidate.links.length > 0 ? (
+                                  <span style={{ display: "flex", flexWrap: "wrap", gap: "2px 6px" }}>
+                                    {candidate.links.map((link, idx) => (
+                                      <a
+                                        key={idx}
+                                        href={toHref(link)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        style={{ color: "rgba(255,255,255,0.75)", textDecoration: "underline" }}
+                                      >
+                                        {link}
+                                        {idx < candidate.links.length - 1 ? "," : ""}
+                                      </a>
+                                    ))}
+                                  </span>
+                                ) : (
+                                  <span>Not on file</span>
+                                )}
+                              </div>
+                            </div>
+
+                            <div>
+                              <div style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.14em", color: "rgba(255,255,255,0.55)", marginBottom: "12px" }}>
+                                Skills
+                              </div>
+                              {candidate.skills.length > 0 ? (
+                                <div style={{ display: "flex", flexWrap: "wrap", gap: "7px" }}>
+                                  {candidate.skills.map((skill) => (
+                                    <span
+                                      key={skill}
+                                      style={{
+                                        fontSize: "11.5px",
+                                        color: "rgba(255,255,255,0.85)",
+                                        border: "1px solid rgba(255,255,255,0.25)",
+                                        padding: "4px 10px",
+                                        borderRadius: "999px",
+                                        whiteSpace: "nowrap",
+                                      }}
+                                    >
+                                      {skill}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.4)" }}>No skills on file</span>
+                              )}
+                            </div>
+
+                            <div>
+                              <div style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.14em", color: "rgba(255,255,255,0.55)", marginBottom: "12px" }}>
+                                Education
+                              </div>
+                              {candidate.education.length > 0 ? (
+                                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                                  {candidate.education.map((entry, entryIdx) => {
+                                    const dateAndInstitute = [entry.date, entry.institute]
+                                      .filter(Boolean)
+                                      .join(", ");
+                                    return (
+                                    <div key={entryIdx}>
+                                      <div style={{ fontSize: "12.5px", fontWeight: 700, color: "#FFFFFF" }}>
+                                        {entry.degree || "Not on file"}
+                                      </div>
+                                      {dateAndInstitute && (
+                                        <div style={{ fontSize: "11.5px", color: "rgba(255,255,255,0.6)", marginTop: "3px" }}>
+                                          {dateAndInstitute}
+                                        </div>
+                                      )}
+                                    </div>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <div style={{ fontSize: "12.5px", color: "rgba(255,255,255,0.6)" }}>Not on file</div>
+                              )}
+                            </div>
+
+                            <div>
+                              <div style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.14em", color: "rgba(255,255,255,0.55)", marginBottom: "12px" }}>
+                                Certifications
+                              </div>
+                              <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.75)" }}>Not on file</div>
+                            </div>
+                          </div>
+
+                          {/* Main */}
+                          <div style={{ flex: 1, minWidth: 0, padding: "36px 32px", display: "flex", flexDirection: "column", gap: "24px", background: "#FFFFFF" }}>
+
+                            <div>
+                              <div style={{ fontSize: "12.5px", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: "#F2A93B", marginBottom: "14px" }}>
+                                Profile
+                              </div>
+                              <p style={{ fontSize: "13.5px", lineHeight: 1.65, color: "#3A3C44", margin: 0 }}>
+                                {candidate.profile ||
+                                  `${candidate.name} is being evaluated for ${candidate.currentRole}${
+                                    candidate.score !== null
+                                      ? `, scoring ${candidate.score}% against this role's requirements`
+                                      : ""
+                                  }${
+                                    candidate.skills.length > 0
+                                      ? `, with listed strengths in ${candidate.skills.slice(0, 4).join(", ")}.`
+                                      : "."
+                                  }`}
+                              </p>
+                            </div>
+
+                            <div>
+                              <div style={{ fontSize: "12.5px", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: "#F2A93B", marginBottom: "14px" }}>
+                                Experience
+                              </div>
+                              {candidate.experience.length > 0 ? (
+                                <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
+                                  {candidate.experience.map((entry) => (
+                                    <div key={entry.label}>
+                                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "12px", flexWrap: "wrap" }}>
+                                        <div style={{ fontSize: "16px", fontWeight: 700, color: "#17181C" }}>{entry.label}</div>
+                                        <div style={{ fontSize: "12px", fontWeight: 600, color: "#9A9CA6", whiteSpace: "nowrap" }}>{candidate.currentRole}</div>
+                                      </div>
+                                      <ul style={{ margin: "8px 0 0", paddingLeft: "18px", display: "flex", flexDirection: "column", gap: "6px" }}>
+                                        {entry.tasks.map((task, idx) => (
+                                          <li key={idx} style={{ fontSize: "13.5px", lineHeight: 1.6, color: "#3A3C44" }}>
+                                            {task}
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <>
+                                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "12px", flexWrap: "wrap" }}>
+                                    <div style={{ fontSize: "16px", fontWeight: 700, color: "#17181C" }}>{candidate.currentRole}</div>
+                                    <div style={{ fontSize: "12px", fontWeight: 600, color: "#9A9CA6", whiteSpace: "nowrap" }}>Present</div>
+                                  </div>
+                                  <div style={{ fontSize: "13px", color: "#6B6D76", marginTop: "2px" }}>Employer not on file</div>
+                                  <ul style={{ margin: "10px 0 0", paddingLeft: "18px", display: "flex", flexDirection: "column", gap: "6px" }}>
+                                    {candidate.skills.length > 0 ? (
+                                      candidate.skills.slice(0, 4).map((skill) => (
+                                        <li key={skill} style={{ fontSize: "13.5px", lineHeight: 1.6, color: "#3A3C44" }}>
+                                          Brings hands-on experience with {skill}.
+                                        </li>
+                                      ))
+                                    ) : (
+                                      <li style={{ fontSize: "13.5px", lineHeight: 1.6, color: "#9A9CA6" }}>No further experience details on file.</li>
+                                    )}
+                                  </ul>
+                                </>
+                              )}
+                            </div>
+
+                          </div>
+
+                        </div>
+                      </td>
+                    </tr>
+                )}
+                </Fragment>
               ))}
             </tbody>
             </table>
