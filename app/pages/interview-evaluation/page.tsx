@@ -5,7 +5,9 @@ import type { ComponentProps } from "react";
 import NavAndSidebar from "@/app/components/navAndSidebar";
 import TableComponent, { type TableData } from "@/app/components/TableComponent";
 import { useEvaluations } from "@/app/hooks/useEvaluations";
-
+import { useUser } from "@/app/contexts/UserContext";
+import { FaChevronDown, FaChevronUp } from "react-icons/fa";
+import { useMinScoreSetting } from "@/app/hooks/useMinScoreSetting";
 type NavProps = ComponentProps<typeof NavAndSidebar>;
 
 /* ------------------------------------------------------------------ */
@@ -28,7 +30,18 @@ interface Candidate {
   name: string;
   role: string;
   email: string;
+  phone: string;
   cvScore: number;
+  cvLink: string;
+  aiConfidenceLevel: string;
+  strengths: string;
+  gapRisk: string;
+  summary: string;
+  salary: string;
+  noticePeriod: string;
+  skills: string;
+  experience: string;
+  aiAssessment: string;
 }
 
 interface Breakdown {
@@ -70,9 +83,41 @@ const KEY_ALIASES: Record<string, string[]> = {
   formtitle: ["formtitle", "jobtitle", "title"],
   email: ["email", "emailaddress"],
   atsscore: ["atsscore", "score", "ats", "candidatescore", "cvscore"],
+  phoneno: ["phoneno", "phone", "phonenumber"],
+  cvlink: ["cvlink", "cv", "resumelink"],
+  aiconfidencelevel: ["aiconfidencelevel", "confidence", "aiconfidence"],
+  strengths: ["strengths", "strenghs"],
+  gaprisk: ["gaprisk", "gap", "risk", "potentialgap"],
+  summarycomment: ["summarycomment", "summary", "comment"],
+  salary: ["salary", "expectedsalary"],
+  noticeperiod: ["noticeperiod", "notice"],
+  skills: ["skills", "expertise"],
+  experience: ["experience", "yearsofexperience", "exp"],
+  aiassesment: ["aiassesment", "aiassessment", "AIassesment"],
 };
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+/* ------------------------------------------------------------------ */
+/* Columns Configuration                                               */
+/* ------------------------------------------------------------------ */
+const COLUMNS: { key: string; label: string; width: string }[] = [
+  { key: "formtitle", label: "Job Title", width: "6%" },
+  { key: "fullname", label: "Full Name", width: "6%" },
+  { key: "email", label: "Email", width: "7%" },
+  { key: "phoneno", label: "Phone No", width: "5%" },
+  { key: "cvlink", label: "CV Link", width: "4%" },
+  { key: "atsscore", label: "ATS Score", width: "4%" },
+  { key: "aiconfidencelevel", label: "AI Confidence Level", width: "6%" },
+  { key: "strengths", label: "Strengths", width: "8%" },
+  { key: "gaprisk", label: "Potential Gap and Risk", width: "8%" },
+  { key: "summarycomment", label: "Summary", width: "8%" },
+  { key: "salary", label: "Expected Salary", width: "5%" },
+  { key: "noticeperiod", label: "Notice Period", width: "4%" },
+  { key: "skills", label: "Skills", width: "7%" },
+  { key: "experience", label: "Experience", width: "7%" },
+  { key: "aiassesment", label: "AI Assessment", width: "8%" },
+];
 
 function resolveKey(rawHeaders: string[], key: string): string | null {
   const map = new Map(rawHeaders.map((h) => [norm(h), h]));
@@ -149,6 +194,45 @@ function ChevronIcon() {
   );
 }
 
+/* Helper function to truncate text to first 5 words */
+function truncateToFiveWords(text: string): { truncated: string; isTruncated: boolean } {
+  if (!text) return { truncated: "", isTruncated: false };
+  const words = text.trim().split(/\s+/);
+  if (words.length <= 5) return { truncated: text, isTruncated: false };
+  return { truncated: words.slice(0, 5).join(" ") + "…", isTruncated: true };
+}
+
+/* Component for rendering expandable text cells */
+function ExpandableTextCell({
+  text,
+  isExpanded,
+  onToggle,
+}: {
+  text: string;
+  isExpanded: boolean;
+  onToggle: () => void;
+}) {
+  if (text === "—") return <p className="text-xs italic text-slate-400">—</p>;
+  const { truncated, isTruncated } = truncateToFiveWords(text);
+  return (
+    <div className="flex items-start gap-2 min-w-0">
+      <p className="text-xs text-slate-600 min-w-0 flex-1 whitespace-pre-wrap break-words">
+        {isExpanded ? text : truncated}
+      </p>
+      {isTruncated && (
+        <button
+          type="button"
+          onClick={onToggle}
+          className="mt-0.5 shrink-0 text-slate-400 hover:text-slate-700"
+          aria-label={isExpanded ? "Collapse" : "Expand"}
+          aria-expanded={isExpanded}
+        >
+          {isExpanded ? <FaChevronUp className="w-3 h-3" /> : <FaChevronDown className="w-3 h-3" />}
+        </button>
+      )}
+    </div>
+  );
+}
 /* ------------------------------------------------------------------ */
 /* Cell renderers                                                      */
 /* ------------------------------------------------------------------ */
@@ -210,6 +294,8 @@ function TotalScoreCell({ value }: { value: number | null }) {
 /* ------------------------------------------------------------------ */
 
 export default function InterviewEvaluationPage() {
+  const { user: contextUser } = useUser();
+
   const pageInfo: NavProps["pageInfo"] = [
     "Interview Evaluation and Final Selection",
     "Shortlisted candidates are reviewed here with their CV score, interview score and interviewer feedback before offers go out.",
@@ -217,11 +303,11 @@ export default function InterviewEvaluationPage() {
   ];
 
   const user: NavProps["user"] = [
-    "Recruiter",
-    "/profile.png",
-    0,
-    "Premium Pro",
-    "WebHook_Url:InterviewEvaluation",
+    contextUser.name,
+    contextUser.profilePic,
+    contextUser.notificationNumber,
+    contextUser.purchasePlan,
+    contextUser.WebHook_Url["InterviewEvaluation"] || "WebHook_Url:InterviewEvaluation",
   ];
 
   /* ---------------- fetched candidate data ---------------- */
@@ -265,7 +351,7 @@ export default function InterviewEvaluationPage() {
   }, [evals]);
 
   /* ---------------- ui state ---------------- */
-  const [minScoreInput, setMinScoreInput] = useState<string>("83");
+  const { minScoreInput, setMinScoreInput } = useMinScoreSetting();
   const [search, setSearch] = useState<string>("");
   const [sortKey, setSortKey] = useState<SortKey>("totalScore");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
@@ -275,6 +361,7 @@ export default function InterviewEvaluationPage() {
   const [statusOpenFor, setStatusOpenFor] = useState<string | null>(null);
   const [toast, setToast] = useState<string>("");
   const [sendingMail, setSendingMail] = useState<string | null>(null);
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
   /* ---------------- feedback modal state ---------------- */
   const [feedbackFor, setFeedbackFor] = useState<Candidate | null>(null);
@@ -297,6 +384,17 @@ export default function InterviewEvaluationPage() {
     const titleKey = resolveKey(rawHeaders, "formtitle");
     const emailKey = resolveKey(rawHeaders, "email");
     const scoreKey = resolveKey(rawHeaders, "atsscore");
+    const phoneKey = resolveKey(rawHeaders, "phoneno");
+    const cvLinkKey = resolveKey(rawHeaders, "cvlink");
+    const aiConfidenceKey = resolveKey(rawHeaders, "aiconfidencelevel");
+    const strengthsKey = resolveKey(rawHeaders, "strengths");
+    const gapRiskKey = resolveKey(rawHeaders, "gaprisk");
+    const summaryKey = resolveKey(rawHeaders, "summarycomment");
+    const salaryKey = resolveKey(rawHeaders, "salary");
+    const noticePeriodKey = resolveKey(rawHeaders, "noticeperiod");
+    const skillsKey = resolveKey(rawHeaders, "skills");
+    const experienceKey = resolveKey(rawHeaders, "experience");
+    const aiAssessmentKey = resolveKey(rawHeaders, "aiassesment");
 
     const rowCount = Array.isArray(datas[rawHeaders[0]]) ? datas[rawHeaders[0]].length : 0;
 
@@ -313,7 +411,19 @@ export default function InterviewEvaluationPage() {
         name,
         role: titleKey ? String(datas[titleKey][i] ?? "—") : "—",
         email,
+        phone: phoneKey ? String(datas[phoneKey][i] ?? "") : "",
         cvScore: scoreKey ? toNumber(datas[scoreKey][i]) : 0,
+        cvLink: cvLinkKey ? String(datas[cvLinkKey][i] ?? "") : "",
+        aiConfidenceLevel: aiConfidenceKey ? String(datas[aiConfidenceKey][i] ?? "") : "",
+        strengths: strengthsKey ? String(datas[strengthsKey][i] ?? "") : "",
+        gapRisk: gapRiskKey ? String(datas[gapRiskKey][i] ?? "") : "",
+
+        summary: summaryKey ? String(datas[summaryKey][i] ?? "") : "",
+        salary: salaryKey ? String(datas[salaryKey][i] ?? "") : "",
+        noticePeriod: noticePeriodKey ? String(datas[noticePeriodKey][i] ?? "") : "",
+        skills: skillsKey ? String(datas[skillsKey][i] ?? "") : "",
+        experience: experienceKey ? String(datas[experienceKey][i] ?? "") : "",
+        aiAssessment: aiAssessmentKey ? String(datas[aiAssessmentKey][i] ?? "") : "",
       });
     }
     return list;
@@ -353,8 +463,8 @@ export default function InterviewEvaluationPage() {
           sortKey === "cvScore"
             ? row.candidate.cvScore
             : sortKey === "interviewScore"
-            ? row.interview ?? -1
-            : row.total ?? -1;
+              ? row.interview ?? -1
+              : row.total ?? -1;
         const primary = (pick(b) - pick(a)) * dir;
         if (primary !== 0) return primary;
         return a.candidate.name.localeCompare(b.candidate.name);
@@ -409,6 +519,7 @@ export default function InterviewEvaluationPage() {
       job_title: scoreFor.role,
       interview_score: total,
       breakdown: scoreDraft,
+      mail_sent: false,
     });
     if (!ok) setToast("Score shown locally but not saved. Check the Supabase connection.");
     setScoreFor(null);
@@ -441,6 +552,7 @@ export default function InterviewEvaluationPage() {
       candidate_name: candidate.name,
       job_title: candidate.role,
       status,
+      mail_sent: false,
     });
     if (!ok) setToast("Status shown locally but not saved. Check the Supabase connection.");
   }
@@ -613,12 +725,28 @@ export default function InterviewEvaluationPage() {
 
         {/* Table */}
         <div className="mt-4 overflow-x-auto rounded-lg border border-slate-200">
-          <table className="w-full min-w-[1120px] border-collapse text-left">
-            <thead className="bg-slate-100 text-xs font-semibold text-slate-600">
+          <table className="w-full text-left border-collapse table-fixed min-w-[3800px]">
+            <colgroup>
+              <col style={{ width: "3%" }} />
+              {COLUMNS.map((col) => (
+                <col key={col.key} style={{ width: col.width }} />
+              ))}
+              <col style={{ width: "4%" }} />
+              <col style={{ width: "5%" }} />
+              <col style={{ width: "4%" }} />
+              <col style={{ width: "4%" }} />
+              <col style={{ width: "5%" }} />
+              <col style={{ width: "6%" }} />
+            </colgroup>
+
+            <thead className="bg-slate-100 text-xs font-bold text-slate-600">
               <tr>
                 <th className="px-3 py-3">Rank</th>
-                <th className="px-3 py-3">Candidate Name</th>
-                <th className="px-3 py-3">Job Title</th>
+                {COLUMNS.map((col) => (
+                  <th key={col.key} className="px-3 py-3">
+                    {col.label}
+                  </th>
+                ))}
                 <th className="px-3 py-3">CV Score (%)</th>
                 <th className="px-3 py-3">Interview Score (100)</th>
                 <th className="px-3 py-3">Total Score</th>
@@ -631,7 +759,7 @@ export default function InterviewEvaluationPage() {
             <tbody className="divide-y divide-slate-100 text-sm">
               {rankedRows.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-3 py-10 text-center text-slate-500">
+                  <td colSpan={COLUMNS.length + 6} className="px-3 py-10 text-center text-slate-500">
                     {datas === null || evalsLoading
                       ? "Loading candidates…"
                       : `No candidate reached ${minScore}. Lower the score to see more people.`}
@@ -646,22 +774,92 @@ export default function InterviewEvaluationPage() {
                     chosen === "not_selected"
                       ? "bg-rose-50"
                       : chosen === "hired"
-                      ? "bg-violet-50"
-                      : chosen === "selected"
-                      ? "bg-sky-50"
-                      : isRecommended
-                      ? "bg-emerald-50/50"
-                      : "bg-white";
+                        ? "bg-violet-50"
+                        : chosen === "selected"
+                          ? "bg-sky-50"
+                          : isRecommended
+                            ? "bg-emerald-50/50"
+                            : "bg-white";
 
                   return (
                     <tr key={candidate.id} className={rowTone}>
-                      <td className="px-3 py-3">
+                      <td className="px-3 py-3 align-top">
                         <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-slate-800 text-xs font-semibold text-white">
                           {rank}
                         </span>
                       </td>
-                      <td className="px-3 py-3 font-medium text-slate-800">{candidate.name}</td>
-                      <td className="px-3 py-3 text-slate-600">{candidate.role}</td>
+
+                      {/* Render dynamic columns from COLUMNS */}
+                      {COLUMNS.map((col) => {
+                        const isExpanded = expandedRows.has(`${candidate.id}-${col.key}`);
+                        const toggleExpand = () => {
+                          const key = `${candidate.id}-${col.key}`;
+                          setExpandedRows((prev) => {
+                            const newSet = new Set(prev);
+                            if (newSet.has(key)) newSet.delete(key);
+                            else newSet.add(key);
+                            return newSet;
+                          });
+                        };
+                        let cellContent: any = "—";
+                        switch (col.key) {
+                          case "fullname":
+                            cellContent = candidate.name;
+                            break;
+                          case "formtitle":
+                            cellContent = candidate.role;
+                            break;
+                          case "email":
+                            cellContent = candidate.email;
+                            break;
+                          case "phoneno":
+                            cellContent = candidate.phone || "—";
+                            break;
+                          case "cvlink":
+                            cellContent = candidate.cvLink ? (
+                              <a href={candidate.cvLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs">
+                                View CV
+                              </a>
+                            ) : ("—");
+                            break;
+                          case "atsscore":
+                            cellContent = `${candidate.cvScore}%`;
+                            break;
+                          case "aiconfidencelevel":
+                            cellContent = `${candidate.aiConfidenceLevel}%`;
+                            break;
+                          case "strengths":
+                            cellContent = <ExpandableTextCell text={candidate.strengths || "—"} isExpanded={isExpanded} onToggle={toggleExpand} />;
+                            break;
+                          case "gaprisk":
+                            cellContent = <ExpandableTextCell text={candidate.gapRisk || "—"} isExpanded={isExpanded} onToggle={toggleExpand} />;
+                            break;
+                          case "summarycomment":
+                            cellContent = <ExpandableTextCell text={candidate.summary || "—"} isExpanded={isExpanded} onToggle={toggleExpand} />;
+                            break;
+                          case "salary":
+                            cellContent = candidate.salary || "—";
+                            break;
+                          case "noticeperiod":
+                            cellContent = candidate.noticePeriod || "—";
+                            break;
+                          case "skills":
+                            cellContent = <ExpandableTextCell text={candidate.skills || "—"} isExpanded={isExpanded} onToggle={toggleExpand} />;
+                            break;
+                          case "experience":
+                            cellContent = <ExpandableTextCell text={candidate.experience || "—"} isExpanded={isExpanded} onToggle={toggleExpand} />;
+                            break;
+                          case "aiassesment":
+                            cellContent = <ExpandableTextCell text={candidate.aiAssessment || "—"} isExpanded={isExpanded} onToggle={toggleExpand} />;
+                            break;
+                        }
+                        return (
+                          <td key={col.key} className="px-3 py-3 text-slate-700 text-xs align-top">
+                            {cellContent}
+                          </td>
+                        );
+                      })}
+
                       <td className="px-3 py-3">
                         <CvScoreBar value={candidate.cvScore} />
                       </td>
@@ -693,19 +891,19 @@ export default function InterviewEvaluationPage() {
                               chosen === "selected"
                                 ? "bg-sky-500 text-white"
                                 : chosen === "not_selected"
-                                ? "bg-rose-100 text-rose-600 ring-1 ring-rose-300"
-                                : chosen === "hired"
-                                ? "bg-violet-600 text-white"
-                                : isRecommended
-                                ? "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-300"
-                                : "bg-slate-100 text-slate-500 ring-1 ring-slate-300",
+                                  ? "bg-rose-100 text-rose-600 ring-1 ring-rose-300"
+                                  : chosen === "hired"
+                                    ? "bg-violet-600 text-white"
+                                    : isRecommended
+                                      ? "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-300"
+                                      : "bg-slate-100 text-slate-500 ring-1 ring-slate-300",
                             ].join(" ")}
                           >
                             {chosen
                               ? STATUS_OPTIONS.find((o) => o.value === chosen)?.label
                               : isRecommended
-                              ? "Recommended"
-                              : "Pending"}
+                                ? "Recommended"
+                                : "Pending"}
                             <ChevronIcon />
                           </button>
 
@@ -777,8 +975,8 @@ export default function InterviewEvaluationPage() {
                           {sentMails[candidate.id]
                             ? "Confirmation Sent"
                             : sendingMail === candidate.id
-                            ? "Sending…"
-                            : "Send Confirmation Mail"}
+                              ? "Sending…"
+                              : "Send Confirmation Mail"}
                         </button>
                       </td>
                     </tr>

@@ -33,6 +33,7 @@ const defaultUser: User = {
     ApplicationsStatus: "https://n8naurora.duckdns.org/webhook/ApplicationsStatus",
     // ApplicationsStatus: "https://n8naurora.duckdns.org/webhook-test/ApplicationsStatus",
     setting: "WebHook_Url:settingopoopop",
+    InterviewEvaluation: "WebHook_Url:InterviewEvaluation",
   }
 };
 
