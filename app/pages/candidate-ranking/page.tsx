@@ -18,16 +18,17 @@ const COLLAPSED_WORD_COUNT = 5;
 const COLUMNS: { key: string; label: string; width: string }[] = [
   { key: "formtitle", label: "Job Title", width: "7%" },
   { key: "fullname", label: "Full Name", width: "7%" },
-  { key: "email", label: "Email", width: "10%" },
-  { key: "phoneno", label: "Phone No", width: "7%" },
-  { key: "cvlink", label: "CV Link", width: "4%" },
-  { key: "atsscore", label: "ATS Score", width: "5%" },
-  { key: "aiconfidencelevel", label: "AI Confidence Level", width: "9%" },
-  { key: "strengths", label: "Strengths", width: "13%" },
-  { key: "gaprisk", label: "Potential Gap and Risk", width: "13%" },
-  { key: "summarycomment", label: "Summary", width: "13%" },
-  { key: "salary", label: "Expected Salary", width: "13%" },
-  { key: "noticeperiod", label: "Notice Period", width: "4%" },
+  // { key: "email", label: "Email", width: "10%" },
+  // { key: "phoneno", label: "Phone No", width: "7%" },
+  // { key: "cvlink", label: "CV Link", width: "4%" },
+  { key: "atsscore", label: "Candidate Match", width: "8%" },
+  { key: "musthaverequirements", label: "Must Have Requirements", width: "8%" },
+  { key: "aiconfidencelevel", label: "Assesment Confidence", width: "9%" },
+  { key: "strengths", label: "Strengths", width: "11%" },
+  { key: "gaprisk", label: "Potential Gap and Risk", width: "12%" },
+  { key: "summarycomment", label: "Summary", width: "10%" },
+  // { key: "salary", label: "Expected Salary", width: "13%" },
+  // { key: "noticeperiod", label: "Notice Period", width: "4%" },
 ];
 
 const JOB_TITLE_KEY = "formtitle";
@@ -39,7 +40,6 @@ const EXPANDABLE_KEYS = new Set([
   "summarycomment",
   "strengths",
   "gaprisk",
-  "aiconfidencelevel",
   "salary",
 ]);
 
@@ -47,9 +47,9 @@ const EXPANDABLE_KEYS = new Set([
 const KEY_ALIASES: Record<string, string[]> = {
   formtitle: ["formtitle", "jobtitle", "title"],
   fullname: ["fullname", "name", "candidatename"],
-  email: ["email", "emailaddress"],
-  phoneno: ["phoneno", "phone", "phonenumber", "mobile"],
-  cvlink: ["cvlink", "cv", "resume", "resumelink", "drivelink"],
+  // email: ["email", "emailaddress"],
+  // phoneno: ["phoneno", "phone", "phonenumber", "mobile"],
+  // cvlink: ["cvlink", "cv", "resume", "resumelink", "drivelink"],
   atsscore: ["atsscore", "score", "ats", "candidatescore"],
   scorebreakdown: ["scorebreakdown", "breakdown", "scoredetails"],
   summarycomment: ["summarycomment", "summary", "comment", "aisummary", "remarks"],
@@ -57,8 +57,9 @@ const KEY_ALIASES: Record<string, string[]> = {
   strengths: ["strengths", "strenghs", "strength", "strong points"],
   gaprisk: ["gaprisk", "gap", "risk", "gapandrisk", "potentialgapandrisk"],
   aiconfidencelevel: ["aiconfidencelevel", "aiconfidence", "confidencelevel", "confidence"],
-  salary: ["salary", "expectedsalary"],
-  noticeperiod: ["noticeperiod", "notice"],
+  musthaverequirements: ["musthaverequirements", "musthaveskill", "musthaverequirement", "mandatoryrequirements", "requirements"],
+  // salary: ["salary", "expectedsalary"],
+  // noticeperiod: ["noticeperiod", "notice"],
 };
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -261,11 +262,12 @@ export default function CandidateScoring() {
         dataBaseId="candidate"
       >
         {/* table-fixed + colgroup: this is what makes truncate actually work */}
-        <table className="w-full text-left border-collapse table-fixed min-w-[2300px]">
+        <table className="w-full text-left border-collapse table-fixed min-w-[1800px]">
           <colgroup>
             {columns.map((col) => (
+                         
               <col key={col.key} style={{ width: col.width }} />
-            ))}
+            ))}            <col style={{ width: "7%" }} />
           </colgroup>
 
           <thead>
@@ -276,7 +278,7 @@ export default function CandidateScoring() {
                   className={
                     "py-3.5 px-5 whitespace-nowrap" +
                     (idx === 0 ? " rounded-tl-xl" : "") +
-                    (idx === columns.length - 1 ? " rounded-tr-xl" : "") +
+                    
                     // COLUMN: JOB TITLE — highlighted header
                     (col.key === JOB_TITLE_KEY
                       ? " bg-indigo-50/80 text-indigo-700 border-r border-indigo-100"
@@ -284,8 +286,11 @@ export default function CandidateScoring() {
                   }
                 >
                   {t(col.label)}
-                </th>
+                </th>                            
               ))}
+              <th className="py-3.5 px-5 whitespace-nowrap rounded-tr-xl">
+                {t("Action")}
+              </th>
             </tr>
           </thead>
 
@@ -407,6 +412,11 @@ export default function CandidateScoring() {
                     </td>
                   );
                 })}
+                <td className="py-4 px-5 align-top">
+                  <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700 ring-1 ring-amber-300">
+                    {t("Under Review")}
+                  </span>
+                </td>
               </tr>
             ))}
           </tbody>

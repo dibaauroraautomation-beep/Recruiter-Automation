@@ -41,7 +41,8 @@ interface Candidate {
   noticePeriod: string;
   skills: string;
   experience: string;
-  aiAssessment: string;
+  // aiAssessment: string;
+  mustHaveRequirements: string;
 }
 
 interface Breakdown {
@@ -93,7 +94,8 @@ const KEY_ALIASES: Record<string, string[]> = {
   noticeperiod: ["noticeperiod", "notice"],
   skills: ["skills", "expertise"],
   experience: ["experience", "yearsofexperience", "exp"],
-  aiassesment: ["aiassesment", "aiassessment", "AIassesment"],
+  // aiassesment: ["aiassesment", "aiassessment", "AIassesment"],
+  musthaverequirements: ["musthaverequirements", "musthaveskill", "musthaverequirement", "mandatoryrequirements", "requirements"],
 };
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -103,20 +105,21 @@ const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 /* ------------------------------------------------------------------ */
 const COLUMNS: { key: string; label: string; width: string }[] = [
   { key: "formtitle", label: "Job Title", width: "6%" },
-  { key: "fullname", label: "Full Name", width: "6%" },
+  { key: "fullname", label: "Full Name", width: "4%" },
   { key: "email", label: "Email", width: "7%" },
   { key: "phoneno", label: "Phone No", width: "5%" },
-  { key: "cvlink", label: "CV Link", width: "4%" },
-  { key: "atsscore", label: "ATS Score", width: "4%" },
-  { key: "aiconfidencelevel", label: "AI Confidence Level", width: "6%" },
+  { key: "cvlink", label: "CV Link", width: "3%" },
+  { key: "atsscore", label: "Candidate Match", width: "5%" },
+  { key: "musthaverequirements", label: "Must Have Requirements", width: "5%" },
+  { key: "aiconfidencelevel", label: "Assesment Confidence", width: "5%" },
   { key: "strengths", label: "Strengths", width: "8%" },
   { key: "gaprisk", label: "Potential Gap and Risk", width: "8%" },
-  { key: "summarycomment", label: "Summary", width: "8%" },
+  { key: "summarycomment", label: "Summary", width: "7%" },
   { key: "salary", label: "Expected Salary", width: "5%" },
   { key: "noticeperiod", label: "Notice Period", width: "4%" },
   { key: "skills", label: "Skills", width: "7%" },
-  { key: "experience", label: "Experience", width: "7%" },
-  { key: "aiassesment", label: "AI Assessment", width: "8%" },
+  { key: "experience", label: "Experience", width: "6%" },
+  // { key: "aiassesment", label: "AI Assessment", width: "8%" },
 ];
 
 function resolveKey(rawHeaders: string[], key: string): string | null {
@@ -131,6 +134,41 @@ function resolveKey(rawHeaders: string[], key: string): string | null {
 function toNumber(value: unknown): number {
   const parsed = Number(String(value ?? "").replace(/[^0-9.]/g, ""));
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function parseMustHave(raw: string): { met: number; total: number } | null {
+  const match = raw.match(/(\d+)\s*(?:\/|of|out of)\s*(\d+)/i);
+  if (!match) return null;
+  return { met: Number(match[1]), total: Number(match[2]) };
+}
+
+function getAiRecommendation(
+  cvScore: number,
+  interviewScore: number | null,
+  total: number | null,
+  mustHave: { met: number; total: number } | null
+): { verdict: "Hire" | "Do Not Hire" | "Manual Review"; reason: string } {
+  if (interviewScore === null || total === null) {
+    return { verdict: "Manual Review", reason: "Interview score not yet recorded." };
+  }
+
+  if (mustHave && mustHave.total > 0) {
+    const ratio = mustHave.met / mustHave.total;
+    if (ratio < 0.75) {
+      return {
+        verdict: "Do Not Hire",
+        reason: `Only ${mustHave.met} of ${mustHave.total} mandatory requirements met.`,
+      };
+    }
+  }
+
+  if (total >= 80) {
+    return { verdict: "Hire", reason: `Strong total score (${total.toFixed(1)}) with mandatory requirements met.` };
+  }
+  if (total >= 60) {
+    return { verdict: "Manual Review", reason: `Moderate total score (${total.toFixed(1)}); review interview notes.` };
+  }
+  return { verdict: "Do Not Hire", reason: `Low total score (${total.toFixed(1)}).` };
 }
 
 /* ------------------------------------------------------------------ */
@@ -289,6 +327,29 @@ function TotalScoreCell({ value }: { value: number | null }) {
   );
 }
 
+function RecommendationBadge({
+  verdict,
+  reason,
+}: {
+  verdict: "Hire" | "Do Not Hire" | "Manual Review";
+  reason: string;
+}) {
+  const tone =
+    verdict === "Hire"
+      ? "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-300"
+      : verdict === "Do Not Hire"
+        ? "bg-rose-100 text-rose-600 ring-1 ring-rose-300"
+        : "bg-amber-100 text-amber-700 ring-1 ring-amber-300";
+  return (
+    <div className="space-y-1">
+      <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${tone}`}>
+        {verdict}
+      </span>
+      <p className="text-xs text-slate-500 whitespace-pre-wrap break-words">{reason}</p>
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* Page                                                                */
 /* ------------------------------------------------------------------ */
@@ -395,8 +456,8 @@ export default function InterviewEvaluationPage() {
     const noticePeriodKey = resolveKey(rawHeaders, "noticeperiod");
     const skillsKey = resolveKey(rawHeaders, "skills");
     const experienceKey = resolveKey(rawHeaders, "experience");
-    const aiAssessmentKey = resolveKey(rawHeaders, "aiassesment");
-
+    // const aiAssessmentKey = resolveKey(rawHeaders, "aiassesment");
+    const mustHaveKey = resolveKey(rawHeaders, "musthaverequirements");
     const rowCount = Array.isArray(datas[rawHeaders[0]]) ? datas[rawHeaders[0]].length : 0;
 
     const list: Candidate[] = [];
@@ -424,7 +485,8 @@ export default function InterviewEvaluationPage() {
         noticePeriod: noticePeriodKey ? String(datas[noticePeriodKey][i] ?? "") : "",
         skills: skillsKey ? String(datas[skillsKey][i] ?? "") : "",
         experience: experienceKey ? String(datas[experienceKey][i] ?? "") : "",
-        aiAssessment: aiAssessmentKey ? String(datas[aiAssessmentKey][i] ?? "") : "",
+        // aiAssessment: aiAssessmentKey ? String(datas[aiAssessmentKey][i] ?? "") : "",
+        mustHaveRequirements: mustHaveKey ? String(datas[mustHaveKey][i] ?? "") : "",
       });
     }
     return list;
@@ -739,9 +801,10 @@ export default function InterviewEvaluationPage() {
               <col style={{ width: "4%" }} />
               <col style={{ width: "5%" }} />
               <col style={{ width: "4%" }} />
-              <col style={{ width: "4%" }} />
+              <col style={{ width: "7%" }} />
               <col style={{ width: "5%" }} />
-              <col style={{ width: "6%" }} />
+              <col style={{ width: "7%" }} />
+              <col style={{ width: "7%" }} />
             </colgroup>
 
             <thead className="bg-slate-100 text-xs font-bold text-slate-600">
@@ -755,6 +818,7 @@ export default function InterviewEvaluationPage() {
                 <th className="px-3 py-3">CV Score (%)</th>
                 <th className="px-3 py-3">Interview Score (100)</th>
                 <th className="px-3 py-3">Total Score</th>
+                <th className="px-3 py-3">AI Recommendation</th>
                 <th className="px-3 py-3">Final Status</th>
                 <th className="px-3 py-3">Feedback</th>
                 <th className="px-3 py-3">Confirmation Mail</th>
@@ -764,7 +828,7 @@ export default function InterviewEvaluationPage() {
             <tbody className="divide-y divide-slate-100 text-sm">
               {rankedRows.length === 0 ? (
                 <tr>
-                  <td colSpan={COLUMNS.length + 6} className="px-3 py-10 text-center text-slate-500">
+                  <td colSpan={COLUMNS.length + 7} className="px-3 py-10 text-center text-slate-500">
                     {datas === null || evalsLoading
                       ? "Loading candidates…"
                       : `No candidate reached ${minScore}. Lower the score to see more people.`}
@@ -774,7 +838,12 @@ export default function InterviewEvaluationPage() {
                 rankedRows.map(({ candidate, interview, total, rank }) => {
                   const chosen = statuses[candidate.id];
                   const isRecommended = total !== null && total >= minScore;
-
+                  const recommendation = getAiRecommendation(
+                    candidate.cvScore,
+                    interview,
+                    total,
+                    parseMustHave(candidate.mustHaveRequirements)
+                  );
                   const rowTone =
                     chosen === "not_selected"
                       ? "bg-rose-50"
@@ -839,7 +908,7 @@ export default function InterviewEvaluationPage() {
                             cellContent = `${candidate.cvScore}%`;
                             break;
                           case "aiconfidencelevel":
-                            cellContent = `${candidate.aiConfidenceLevel}%`;
+                            cellContent = candidate.aiConfidenceLevel || "—";
                             break;
                           case "strengths":
                             cellContent = <ExpandableTextCell text={candidate.strengths || "—"} isExpanded={isExpanded} onToggle={toggleExpand} />;
@@ -862,8 +931,11 @@ export default function InterviewEvaluationPage() {
                           case "experience":
                             cellContent = <ExpandableTextCell text={candidate.experience || "—"} isExpanded={isExpanded} onToggle={toggleExpand} />;
                             break;
-                          case "aiassesment":
-                            cellContent = <ExpandableTextCell text={candidate.aiAssessment || "—"} isExpanded={isExpanded} onToggle={toggleExpand} />;
+                          // case "aiassesment":
+                          //   cellContent = <ExpandableTextCell text={candidate.aiAssessment || "—"} isExpanded={isExpanded} onToggle={toggleExpand} />;
+                          //   break;
+                          case "musthaverequirements":
+                            cellContent = <ExpandableTextCell text={candidate.mustHaveRequirements || "—"} isExpanded={isExpanded} onToggle={toggleExpand} />;
                             break;
                         }
                         return (
@@ -889,6 +961,10 @@ export default function InterviewEvaluationPage() {
                         <TotalScoreCell value={total} />
                       </td>
 
+                      <td className="px-3 py-3 align-top">
+                        <RecommendationBadge {...recommendation} />
+                      </td>
+
                       {/* ---- Final status dropdown ---- */}
                       <td className="px-3 py-3">
                         <div className="relative">
@@ -907,16 +983,20 @@ export default function InterviewEvaluationPage() {
                                   ? "bg-rose-100 text-rose-600 ring-1 ring-rose-300"
                                   : chosen === "hired"
                                     ? "bg-violet-600 text-white"
-                                    : isRecommended
-                                      ? "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-300"
-                                      : "bg-slate-100 text-slate-500 ring-1 ring-slate-300",
+                                    : recommendation.verdict === "Do Not Hire"
+                                      ? "bg-rose-100 text-rose-600 ring-1 ring-rose-300"
+                                      : recommendation.verdict === "Hire"
+                                        ? "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-300"
+                                        : "bg-slate-100 text-slate-500 ring-1 ring-slate-300",
                             ].join(" ")}
                           >
                             {chosen
                               ? STATUS_OPTIONS.find((o) => o.value === chosen)?.label
-                              : isRecommended
-                                ? "Recommended"
-                                : "Pending"}
+                              : recommendation.verdict === "Do Not Hire"
+                                ? "Not Selected"
+                                : recommendation.verdict === "Hire"
+                                  ? "Recommended"
+                                  : "Pending"}
                             <ChevronIcon />
                           </button>
 
@@ -1172,7 +1252,7 @@ export default function InterviewEvaluationPage() {
               <div className="flex gap-2">
                 <span className="font-bold text-slate-800 shrink-0">AI Confidence Level:</span>
                 <span className="text-slate-600 break-words">
-                  {detailCandidate.aiConfidenceLevel ? `${detailCandidate.aiConfidenceLevel}%` : "—"}
+                  {detailCandidate.aiConfidenceLevel || "—"}
                 </span>
               </div>
               <div className="flex gap-2">
@@ -1203,10 +1283,10 @@ export default function InterviewEvaluationPage() {
                 <span className="font-bold text-slate-800 shrink-0">Experience:</span>
                 <span className="text-slate-600 whitespace-pre-wrap break-words">{detailCandidate.experience || "—"}</span>
               </div>
-              <div className="flex gap-2">
+              {/* <div className="flex gap-2">
                 <span className="font-bold text-slate-800 shrink-0">AI Assessment:</span>
                 <span className="text-slate-600 whitespace-pre-wrap break-words">{detailCandidate.aiAssessment || "—"}</span>
-              </div>
+              </div> */}
               <div className="flex gap-2">
                 <span className="font-bold text-slate-800 shrink-0">Interview Score:</span>
                 <span className="text-slate-600">{detailInterview !== null ? detailInterview : ""}</span>
