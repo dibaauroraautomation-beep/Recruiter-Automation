@@ -6,8 +6,10 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { useT } from "@/app/contexts/LanguageContext";
 import { useUser } from "@/app/contexts/UserContext";
 
-type CandidateEntry = {
-  label: string;
+type ExperienceEntry = {
+  role: string;
+  company: string;
+  duration: string;
   tasks: string[];
 };
 
@@ -30,7 +32,7 @@ type Candidate = {
   phone: string;
   links: string[];
   education: EducationEntry[];
-  experience: CandidateEntry[];
+  experience: ExperienceEntry[];
 };
 
 const sendCandidateAction = (
@@ -111,7 +113,7 @@ export default function Dashboard() {
     // {"ex1":["task","task1"],"ex2":["task2"]} - sometimes with trailing
     // commas or stray characters. Parse leniently, and if that fails, fall
     // back to showing the raw text rather than dropping the data.
-    const parseEntryMap = (raw: string | undefined, prefix: string): CandidateEntry[] => {
+    const parseEntryMap = (raw: string | undefined, prefix: string): { label: string; tasks: string[] }[] => {
       const cleaned = cleanValue(raw);
       if (!cleaned) return [];
       try {
@@ -170,6 +172,95 @@ export default function Dashboard() {
         degree: fields["ki"] ?? Object.values(fields)[0] ?? "",
         institute: fields["kun"] ?? fields["ko_un"] ?? "",
         date: fields["kob"] ?? "",
+      }));
+    };
+
+    // The "experience" column's primary shape is a JSON array of
+    // objects, e.g. [{"role":"Full Stack Developer","company":"Sunshine
+    // Digital","duration":"2022 - Present"}, {...}]. Older data may
+    // instead use sub-keys like "ex1_role"/"ex1_company"/"ex1_duration",
+    // or the oldest {"ex1":["task","task2"]} label+tasks shape - all
+    // three are supported so no existing data silently breaks.
+    const parseExperience = (raw?: string): ExperienceEntry[] => {
+      const cleaned = cleanValue(raw);
+      if (!cleaned) return [];
+
+      const toEntry = (item: unknown): ExperienceEntry | null => {
+        if (!item || typeof item !== "object") return null;
+        const obj = item as Record<string, unknown>;
+        const pick = (...keys: string[]): string => {
+          for (const key of keys) {
+            const value = obj[key];
+            if (typeof value === "string" && value.trim() && value !== "null") {
+              return value.trim();
+            }
+          }
+          return "";
+        };
+        const tasksRaw = obj.tasks ?? obj.task ?? obj.responsibilities ?? obj.details;
+        const tasks = Array.isArray(tasksRaw)
+          ? tasksRaw.map(String)
+          : typeof tasksRaw === "string" && tasksRaw.trim()
+            ? [tasksRaw.trim()]
+            : [];
+        return {
+          role: pick("role", "title", "position", "jobTitle"),
+          company: pick("company", "employer", "organization"),
+          duration: pick("duration", "date", "dates", "period"),
+          tasks,
+        };
+      };
+
+      // Preferred shape: a JSON array (or object) of {role, company, duration}.
+      try {
+        const jsonSafe = cleaned.replace(/,(\s*[}\]])/g, "$1");
+        const parsed = JSON.parse(jsonSafe);
+        const items = Array.isArray(parsed)
+          ? parsed
+          : parsed && typeof parsed === "object"
+            ? Object.values(parsed as Record<string, unknown>)
+            : [];
+        const entries = items
+          .map(toEntry)
+          .filter((entry): entry is ExperienceEntry => entry !== null);
+        if (entries.length > 0) return entries;
+      } catch {
+        // not valid JSON, fall through to the older formats below
+      }
+
+      // Legacy shape: sub-keys like "ex1_role", "ex1_company", "ex1_duration".
+      const pairRegex = /"([a-zA-Z]+\d+)_([a-zA-Z0-9_]+)"\s*:\s*"([^"]*)"/g;
+      const groups = new Map<string, Record<string, string>>();
+      let match: RegExpExecArray | null;
+      while ((match = pairRegex.exec(cleaned)) !== null) {
+        const [, prefix, suffix, value] = match;
+        if (!groups.has(prefix)) groups.set(prefix, {});
+        groups.get(prefix)![suffix] = value;
+      }
+      if (groups.size > 0) {
+        return Array.from(groups.values()).map((fields) => {
+          const taskKeys = Object.keys(fields)
+            .filter((key) => /^task\d+$/.test(key))
+            .sort(
+              (a, b) =>
+                parseInt(a.replace("task", ""), 10) -
+                parseInt(b.replace("task", ""), 10),
+            );
+          return {
+            role: fields["role"] ?? "",
+            company: fields["company"] ?? "",
+            duration: fields["duration"] ?? "",
+            tasks: taskKeys.map((key) => fields[key]).filter(Boolean),
+          };
+        });
+      }
+
+      // Oldest shape: {"ex1":["task","task2"]} - generic label + tasks only.
+      return parseEntryMap(cleaned, "Experience").map((entry) => ({
+        role: entry.label,
+        company: "",
+        duration: "",
+        tasks: entry.tasks,
       }));
     };
 
@@ -232,7 +323,7 @@ export default function Dashboard() {
       phone: cleanValue(phoneCol[i]),
       links: parseLinks(linksCol[i]),
       education: parseEducation(educationCol[i]),
-      experience: parseEntryMap(experienceCol[i], "Experience"),
+      experience: parseExperience(experienceCol[i]),
     }))
       .filter((c) => c.score !== null && c.score > filterScore)
       .sort((a, b) => a.rank - b.rank);
@@ -414,7 +505,7 @@ export default function Dashboard() {
         >
           <>
             {selectedIds.length > 0 && (
-              <div className="flex items-center justify-between gap-3 px-5 py-2.5 mb-2 bg-slate-50 border border-slate-200 rounded-xl">
+              <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-2.5 mb-2 bg-slate-50 border border-slate-200 rounded-xl">
                 <span className="text-xs font-semibold text-slate-600">
                   {selectedIds.length} selected
                 </span>
@@ -571,12 +662,12 @@ export default function Dashboard() {
                       <td colSpan={8} className="px-5 pb-5 pt-0">
                         <div
                           style={{ fontFamily: "'Manrope', system-ui, sans-serif" }}
-                          className="rounded-xl overflow-hidden shadow-md ring-1 ring-slate-200 flex flex-col sm:flex-row bg-white"
+                          className="sticky left-0 w-[calc(100vw-2rem)] sm:w-[calc(100vw-3rem)] lg:w-[calc(100vw-19rem)] max-w-[980px] rounded-xl overflow-hidden shadow-md ring-1 ring-slate-200 flex flex-col sm:flex-row bg-white"
                         >
 
                           {/* Sidebar */}
                           <div
-                            style={{ width: "280px", background: "#17181C", color: "#FFFFFF", padding: "36px 28px" }}
+                            style={{ background: "#17181C", color: "#FFFFFF", padding: "36px 28px" }}
                             className="w-full sm:w-[280px] shrink-0 flex flex-col gap-[26px]"
                           >
                             <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
@@ -741,19 +832,28 @@ export default function Dashboard() {
                               </div>
                               {candidate.experience.length > 0 ? (
                                 <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
-                                  {candidate.experience.map((entry) => (
-                                    <div key={entry.label}>
-                                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "12px", flexWrap: "wrap" }}>
-                                        <div style={{ fontSize: "16px", fontWeight: 700, color: "#17181C" }}>{entry.label}</div>
-                                        <div style={{ fontSize: "12px", fontWeight: 600, color: "#9A9CA6", whiteSpace: "nowrap" }}>{candidate.currentRole}</div>
-                                      </div>
-                                      <ul style={{ margin: "8px 0 0", paddingLeft: "18px", display: "flex", flexDirection: "column", gap: "6px" }}>
-                                        {entry.tasks.map((task, idx) => (
-                                          <li key={idx} style={{ fontSize: "13.5px", lineHeight: 1.6, color: "#3A3C44" }}>
-                                            {task}
-                                          </li>
-                                        ))}
-                                      </ul>
+                                  {candidate.experience.map((entry, entryIdx) => (
+                                    <div key={entryIdx}>
+                                      <div style={{ fontSize: "16px", fontWeight: 700, color: "#17181C" }}>{entry.role || "Not on file"}</div>
+                                      {(entry.company || entry.duration) && (
+                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "12px", flexWrap: "wrap", marginTop: "3px" }}>
+                                          <div style={{ fontSize: "13px", fontWeight: 600, color: "#6B6D76" }}>
+                                            {entry.company || "Employer not on file"}
+                                          </div>
+                                          <div style={{ fontSize: "12px", fontWeight: 600, color: "#9A9CA6", whiteSpace: "nowrap" }}>
+                                            {entry.duration || "Present"}
+                                          </div>
+                                        </div>
+                                      )}
+                                      {entry.tasks.length > 0 && (
+                                        <ul style={{ margin: "8px 0 0", paddingLeft: "18px", display: "flex", flexDirection: "column", gap: "6px" }}>
+                                          {entry.tasks.map((task, idx) => (
+                                            <li key={idx} style={{ fontSize: "13.5px", lineHeight: 1.6, color: "#3A3C44" }}>
+                                              {task}
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      )}
                                     </div>
                                   ))}
                                 </div>
