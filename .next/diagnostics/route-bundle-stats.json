@@ -1,13 +1,13 @@
 [
   {
     "route": "/pages/interview-evaluation",
-    "firstLoadUncompressedJsBytes": 863068,
+    "firstLoadUncompressedJsBytes": 864389,
     "firstLoadChunkPaths": [
       ".next\\static\\chunks\\2qrp66bi3907y.js",
       ".next\\static\\chunks\\14mrh2-p_w84d.js",
       ".next\\static\\chunks\\3nwge5s9rtgdo.js",
       ".next\\static\\chunks\\3-ygl9i90w9-r.js",
-      ".next\\static\\chunks\\1x_0fikq-9z5h.js",
+      ".next\\static\\chunks\\03wy9046dyoce.js",
       ".next\\static\\chunks\\3yiddnbtmgj46.js",
       ".next\\static\\chunks\\27jktro2p5rq9.js",
       ".next\\static\\chunks\\2nykiepra7i1k.js",
@@ -17,11 +17,11 @@
   },
   {
     "route": "/pages/shortlisted-candidates",
-    "firstLoadUncompressedJsBytes": 613999,
+    "firstLoadUncompressedJsBytes": 615436,
     "firstLoadChunkPaths": [
       ".next\\static\\chunks\\2qrp66bi3907y.js",
       ".next\\static\\chunks\\14mrh2-p_w84d.js",
-      ".next\\static\\chunks\\2b18ny73ak0fr.js",
+      ".next\\static\\chunks\\2as8zfwbc2q04.js",
       ".next\\static\\chunks\\3-ygl9i90w9-r.js",
       ".next\\static\\chunks\\3nwge5s9rtgdo.js",
       ".next\\static\\chunks\\3yiddnbtmgj46.js",
@@ -33,11 +33,11 @@
   },
   {
     "route": "/pages/candidate-ranking",
-    "firstLoadUncompressedJsBytes": 604337,
+    "firstLoadUncompressedJsBytes": 604434,
     "firstLoadChunkPaths": [
       ".next\\static\\chunks\\2qrp66bi3907y.js",
       ".next\\static\\chunks\\14mrh2-p_w84d.js",
-      ".next\\static\\chunks\\2xnl4jjjyct-r.js",
+      ".next\\static\\chunks\\0k5y8uxbm15al.js",
       ".next\\static\\chunks\\3-ygl9i90w9-r.js",
       ".next\\static\\chunks\\3nwge5s9rtgdo.js",
       ".next\\static\\chunks\\3yiddnbtmgj46.js",
@@ -65,11 +65,11 @@
   },
   {
     "route": "/pages/job-requisitions",
-    "firstLoadUncompressedJsBytes": 566456,
+    "firstLoadUncompressedJsBytes": 566607,
     "firstLoadChunkPaths": [
       ".next\\static\\chunks\\2qrp66bi3907y.js",
       ".next\\static\\chunks\\14mrh2-p_w84d.js",
-      ".next\\static\\chunks\\17quy7tzca14l.js",
+      ".next\\static\\chunks\\3b1sfuszaatvc.js",
       ".next\\static\\chunks\\3-ygl9i90w9-r.js",
       ".next\\static\\chunks\\3yiddnbtmgj46.js",
       ".next\\static\\chunks\\27jktro2p5rq9.js",

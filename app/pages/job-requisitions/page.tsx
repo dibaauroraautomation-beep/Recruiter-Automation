@@ -5,6 +5,16 @@ import Card from "@/app/components/Card";
 import { useUser } from "@/app/contexts/UserContext";
 import { useLanguage } from "@/app/contexts/LanguageContext";
 
+function getSessionId(): string {
+  if (typeof window === "undefined") return "";
+  let id = sessionStorage.getItem("jobPublishSessionId");
+  if (!id) {
+    id = crypto.randomUUID();
+    sessionStorage.setItem("jobPublishSessionId", id);
+  }
+  return id;
+}
+
 function FieldSpinner() {
   return (
     <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-white/70 backdrop-blur-[1px]">
@@ -86,7 +96,7 @@ export default function JobPublish() {
         const res = await fetch(WEBHOOK_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ jobTitle: title }),
+          body: JSON.stringify({ jobTitle: title, sessionId: getSessionId() }),
         });
 
         if (!res.ok) throw new Error(`Webhook returned ${res.status}`);
@@ -191,9 +201,9 @@ export default function JobPublish() {
           <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
         </svg>
       </div>
-      <h1 className="text-3xl font-bold text-slate-900">{t("Job Posted!")}</h1>
+      <h1 className="text-3xl font-bold text-slate-900">{t("Submitted for Approval")}</h1>
       <p className="mt-4 text-base text-slate-500 leading-relaxed max-w-md text-center">
-        {t("Your job listing is now live. We\u2019ll start matching candidates shortly.")}
+        {t("Your job listing has been sent for review. It will go live once approved.")}
       </p>
       <button
         onClick={resetForm}
