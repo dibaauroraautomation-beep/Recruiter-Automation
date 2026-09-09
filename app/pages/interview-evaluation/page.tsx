@@ -74,7 +74,7 @@ const STATUS_OPTIONS: { value: SelectionStatus; label: string }[] = [
   { value: "not_selected", label: "Not Selected" },
   { value: "hired", label: "Hired" },
 ];
-
+const NOT_AVAILABLE = "Data Not Available";
 /* ------------------------------------------------------------------ */
 /* Webhook column mapping                                              */
 /* ------------------------------------------------------------------ */
@@ -250,7 +250,7 @@ function ExpandableTextCell({
   isExpanded: boolean;
   onToggle: () => void;
 }) {
-  if (text === "—") return <p className="text-xs italic text-slate-400">—</p>;
+  if (text === NOT_AVAILABLE) return <p className="text-xs italic text-slate-400">{NOT_AVAILABLE}</p>;
   const { truncated, isTruncated } = truncateToFiveWords(text);
   return (
     <div className="flex items-start gap-2 min-w-0">
@@ -471,7 +471,7 @@ export default function InterviewEvaluationPage() {
         // email is stable across reorders; index fallback only if email is missing
         id: email && email.toLowerCase() !== "null" ? email : `row-${i}`,
         name,
-        role: titleKey ? String(datas[titleKey][i] ?? "—") : "—",
+        role: titleKey ? String(datas[titleKey][i] ?? NOT_AVAILABLE) : NOT_AVAILABLE,
         email,
         phone: phoneKey ? String(datas[phoneKey][i] ?? "") : "",
         cvScore: scoreKey ? toNumber(datas[scoreKey][i]) : 0,
@@ -875,7 +875,7 @@ export default function InterviewEvaluationPage() {
                             return newSet;
                           });
                         };
-                        let cellContent: any = "—";
+                        let cellContent: any = "NOT_AVAILABLE";
                         switch (col.key) {
                           case "fullname":
                             cellContent = (
@@ -895,47 +895,47 @@ export default function InterviewEvaluationPage() {
                             cellContent = candidate.email;
                             break;
                           case "phoneno":
-                            cellContent = candidate.phone || "—";
+                            cellContent = candidate.phone || "NOT_AVAILABLE";
                             break;
                           case "cvlink":
                             cellContent = candidate.cvLink ? (
                               <a href={candidate.cvLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs">
                                 View CV
                               </a>
-                            ) : ("—");
+                            ) : ("NOT_AVAILABLE");
                             break;
                           case "atsscore":
                             cellContent = `${candidate.cvScore}%`;
                             break;
                           case "aiconfidencelevel":
-                            cellContent = candidate.aiConfidenceLevel || "—";
+                            cellContent = candidate.aiConfidenceLevel || "NOT_AVAILABLE";
                             break;
                           case "strengths":
-                            cellContent = <ExpandableTextCell text={candidate.strengths || "—"} isExpanded={isExpanded} onToggle={toggleExpand} />;
+                            cellContent = <ExpandableTextCell text={candidate.strengths || "NOT_AVAILABLE"} isExpanded={isExpanded} onToggle={toggleExpand} />;
                             break;
                           case "gaprisk":
-                            cellContent = <ExpandableTextCell text={candidate.gapRisk || "—"} isExpanded={isExpanded} onToggle={toggleExpand} />;
+                            cellContent = <ExpandableTextCell text={candidate.gapRisk || "NOT_AVAILABLE"} isExpanded={isExpanded} onToggle={toggleExpand} />;
                             break;
                           case "summarycomment":
-                            cellContent = <ExpandableTextCell text={candidate.summary || "—"} isExpanded={isExpanded} onToggle={toggleExpand} />;
+                            cellContent = <ExpandableTextCell text={candidate.summary || "NOT_AVAILABLE"} isExpanded={isExpanded} onToggle={toggleExpand} />;
                             break;
                           case "salary":
-                            cellContent = candidate.salary || "—";
+                            cellContent = candidate.salary || "NOT_AVAILABLE";
                             break;
                           case "noticeperiod":
-                            cellContent = candidate.noticePeriod || "—";
+                            cellContent = candidate.noticePeriod || "NOT_AVAILABLE";
                             break;
                           case "skills":
-                            cellContent = <ExpandableTextCell text={candidate.skills || "—"} isExpanded={isExpanded} onToggle={toggleExpand} />;
+                            cellContent = <ExpandableTextCell text={candidate.skills || "NOT_AVAILABLE"} isExpanded={isExpanded} onToggle={toggleExpand} />;
                             break;
                           case "experience":
-                            cellContent = <ExpandableTextCell text={candidate.experience || "—"} isExpanded={isExpanded} onToggle={toggleExpand} />;
+                            cellContent = <ExpandableTextCell text={candidate.experience || "NOT_AVAILABLE"} isExpanded={isExpanded} onToggle={toggleExpand} />;
                             break;
                           // case "aiassesment":
                           //   cellContent = <ExpandableTextCell text={candidate.aiAssessment || "—"} isExpanded={isExpanded} onToggle={toggleExpand} />;
                           //   break;
                           case "musthaverequirements":
-                            cellContent = <ExpandableTextCell text={candidate.mustHaveRequirements || "—"} isExpanded={isExpanded} onToggle={toggleExpand} />;
+                            cellContent = <ExpandableTextCell text={candidate.mustHaveRequirements || "NOT_AVAILABLE"} isExpanded={isExpanded} onToggle={toggleExpand} />;
                             break;
                         }
                         return (
@@ -1229,11 +1229,11 @@ export default function InterviewEvaluationPage() {
               </div>
               <div className="flex gap-2">
                 <span className="font-bold text-slate-800 shrink-0">Email:</span>
-                <span className="text-slate-600 break-words">{detailCandidate.email || "—"}</span>
+                <span className="text-slate-600 break-words">{detailCandidate.email || "NOT_AVAILABLE"}</span>
               </div>
               <div className="flex gap-2">
                 <span className="font-bold text-slate-800 shrink-0">Phone No:</span>
-                <span className="text-slate-600 break-words">{detailCandidate.phone || "—"}</span>
+                <span className="text-slate-600 break-words">{detailCandidate.phone || "NOT_AVAILABLE"}</span>
               </div>
               <div className="flex gap-2">
                 <span className="font-bold text-slate-800 shrink-0">CV Link:</span>
@@ -1242,7 +1242,7 @@ export default function InterviewEvaluationPage() {
                     View CV
                   </a>
                 ) : (
-                  <span className="text-slate-600">—</span>
+                  <span className="text-slate-600">NOT_AVAILABLE</span>
                 )}
               </div>
               <div className="flex gap-2">
@@ -1252,36 +1252,36 @@ export default function InterviewEvaluationPage() {
               <div className="flex gap-2">
                 <span className="font-bold text-slate-800 shrink-0">AI Confidence Level:</span>
                 <span className="text-slate-600 break-words">
-                  {detailCandidate.aiConfidenceLevel || "—"}
+                  {detailCandidate.aiConfidenceLevel || "NOT_AVAILABLE"}
                 </span>
               </div>
               <div className="flex gap-2">
                 <span className="font-bold text-slate-800 shrink-0">Strengths:</span>
-                <span className="text-slate-600 whitespace-pre-wrap break-words">{detailCandidate.strengths || "—"}</span>
+                <span className="text-slate-600 whitespace-pre-wrap break-words">{detailCandidate.strengths || "NOT_AVAILABLE"}</span>
               </div>
               <div className="flex gap-2">
                 <span className="font-bold text-slate-800 shrink-0">Potential Gap and Risk:</span>
-                <span className="text-slate-600 whitespace-pre-wrap break-words">{detailCandidate.gapRisk || "—"}</span>
+                <span className="text-slate-600 whitespace-pre-wrap break-words">{detailCandidate.gapRisk || "NOT_AVAILABLE"}</span>
               </div>
               <div className="flex gap-2">
                 <span className="font-bold text-slate-800 shrink-0">Summary:</span>
-                <span className="text-slate-600 whitespace-pre-wrap break-words">{detailCandidate.summary || "—"}</span>
+                <span className="text-slate-600 whitespace-pre-wrap break-words">{detailCandidate.summary || "NOT_AVAILABLE"}</span>
               </div>
               <div className="flex gap-2">
                 <span className="font-bold text-slate-800 shrink-0">Expected Salary:</span>
-                <span className="text-slate-600 break-words">{detailCandidate.salary || "—"}</span>
+                <span className="text-slate-600 break-words">{detailCandidate.salary || "NOT_AVAILABLE"}</span>
               </div>
               <div className="flex gap-2">
                 <span className="font-bold text-slate-800 shrink-0">Notice Period:</span>
-                <span className="text-slate-600 break-words">{detailCandidate.noticePeriod || "—"}</span>
+                <span className="text-slate-600 break-words">{detailCandidate.noticePeriod || "NOT_AVAILABLE"}</span>
               </div>
               <div className="flex gap-2">
                 <span className="font-bold text-slate-800 shrink-0">Skills:</span>
-                <span className="text-slate-600 whitespace-pre-wrap break-words">{detailCandidate.skills || "—"}</span>
+                <span className="text-slate-600 whitespace-pre-wrap break-words">{detailCandidate.skills || "NOT_AVAILABLE"}</span>
               </div>
               <div className="flex gap-2">
                 <span className="font-bold text-slate-800 shrink-0">Experience:</span>
-                <span className="text-slate-600 whitespace-pre-wrap break-words">{detailCandidate.experience || "—"}</span>
+                <span className="text-slate-600 whitespace-pre-wrap break-words">{detailCandidate.experience || "NOT_AVAILABLE"}</span>
               </div>
               {/* <div className="flex gap-2">
                 <span className="font-bold text-slate-800 shrink-0">AI Assessment:</span>
