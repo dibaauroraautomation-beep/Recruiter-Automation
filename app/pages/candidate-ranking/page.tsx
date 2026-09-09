@@ -82,6 +82,7 @@ function snippet(text: string, words: number) {
 
 const isBlank = (value: string) => !value || value.toLowerCase() === "null";
 
+const NOT_AVAILABLE = "Not Available"; // ← add this line
 /* ------------------------------------------------------------------ */
 /* scoreBreakdown parsing                                              */
 /* Arrives as newline separated "Label: value" lines. Value is either  */
@@ -322,7 +323,7 @@ export default function CandidateScoring() {
                         className="py-4 px-5 align-top bg-indigo-50/40 border-r border-indigo-100 group-hover:bg-indigo-50/70 transition-colors"
                       >
                         <span className="text-sm font-bold text-indigo-900 tracking-tight break-words">
-                          {empty ? "—" : value}
+                          {empty ? NOT_AVAILABLE : value}
                         </span>
                       </td>
                     );
@@ -338,7 +339,7 @@ export default function CandidateScoring() {
                       <td key={col.key} className="py-4 px-5 align-top">
                         <div className="flex items-center gap-1.5">
                           <span className="text-xs font-semibold text-slate-700">
-                            {empty ? "—" : value}
+                            {empty ? NOT_AVAILABLE : value}
                           </span>
                           {hasBreakdown && (
                             <button
@@ -362,7 +363,7 @@ export default function CandidateScoring() {
                     return (
                       <td key={col.key} className="py-4 px-5 align-top">
                         <div className="flex items-start gap-2 min-w-0">
-                          {empty && <p className="text-xs italic text-slate-400">—</p>}
+                          {empty && <p className="text-xs italic text-slate-400">{NOT_AVAILABLE}</p>}
 
                           {!empty && (
                             <>
@@ -406,7 +407,7 @@ export default function CandidateScoring() {
                         </a>
                       ) : (
                         <span className="block truncate" title={value}>
-                          {empty ? "" : value}
+                          {empty ? NOT_AVAILABLE : value}
                         </span>
                       )}
                     </td>
