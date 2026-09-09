@@ -323,7 +323,7 @@ export default function Dashboard() {
     };
 
     const nameCol = col("CandidateName");
-    const roleCol = col("CurrentRole");
+    const roleCol = col("formtitle");
     const scoreCol = col("Score");
     const skillsCol = col("Skills");
     const mustHaveSkillCol = col("musthaveskill");
@@ -624,7 +624,7 @@ export default function Dashboard() {
                 <th className="py-3.5 px-5 rounded-tl-xl"></th>
                 <th className="py-3.5 px-5">Rank</th>
                 <th className="py-3.5 px-5">Candidate Name</th>
-                <th className="py-3.5 px-5">Current Role</th>
+                <th className="py-3.5 px-5">Job title</th>
                 <th className="py-3.5 px-5">Score (%)</th>
                 <th className="py-3.5 px-5">Skills</th>
                 <th className="py-3.5 px-5">Must Have Skill</th>
@@ -718,7 +718,7 @@ export default function Dashboard() {
                   </td>
                   <td className="py-4 px-5">
                     <span className="text-xs text-slate-400 font-medium leading-relaxed">
-                      {candidate.mustHaveSkill || "—"}
+                      {candidate.mustHaveSkill || "Not Available Yet"}
                     </span>
                   </td>
                   <td className="py-4 px-5">
