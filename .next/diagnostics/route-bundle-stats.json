@@ -1,13 +1,13 @@
 [
   {
     "route": "/pages/interview-evaluation",
-    "firstLoadUncompressedJsBytes": 864389,
+    "firstLoadUncompressedJsBytes": 875232,
     "firstLoadChunkPaths": [
       ".next\\static\\chunks\\2qrp66bi3907y.js",
       ".next\\static\\chunks\\14mrh2-p_w84d.js",
       ".next\\static\\chunks\\3nwge5s9rtgdo.js",
       ".next\\static\\chunks\\3-ygl9i90w9-r.js",
-      ".next\\static\\chunks\\3om8hi8e93nj4.js",
+      ".next\\static\\chunks\\1ec1ot5qnghfs.js",
       ".next\\static\\chunks\\3yiddnbtmgj46.js",
       ".next\\static\\chunks\\27jktro2p5rq9.js",
       ".next\\static\\chunks\\2nykiepra7i1k.js",
@@ -33,11 +33,11 @@
   },
   {
     "route": "/pages/candidate-ranking",
-    "firstLoadUncompressedJsBytes": 604434,
+    "firstLoadUncompressedJsBytes": 604439,
     "firstLoadChunkPaths": [
       ".next\\static\\chunks\\2qrp66bi3907y.js",
       ".next\\static\\chunks\\14mrh2-p_w84d.js",
-      ".next\\static\\chunks\\0k5y8uxbm15al.js",
+      ".next\\static\\chunks\\1ctgs7_s4ktba.js",
       ".next\\static\\chunks\\3-ygl9i90w9-r.js",
       ".next\\static\\chunks\\3nwge5s9rtgdo.js",
       ".next\\static\\chunks\\3yiddnbtmgj46.js",

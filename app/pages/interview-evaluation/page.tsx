@@ -74,7 +74,7 @@ const STATUS_OPTIONS: { value: SelectionStatus; label: string }[] = [
   { value: "not_selected", label: "Not Selected" },
   { value: "hired", label: "Hired" },
 ];
-const NOT_AVAILABLE = "Data Not Available";
+const NOT_AVAILABLE = "Not Available";
 /* ------------------------------------------------------------------ */
 /* Webhook column mapping                                              */
 /* ------------------------------------------------------------------ */
@@ -134,6 +134,11 @@ function resolveKey(rawHeaders: string[], key: string): string | null {
 function toNumber(value: unknown): number {
   const parsed = Number(String(value ?? "").replace(/[^0-9.]/g, ""));
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function cleanValue(value: unknown): string {
+  const str = String(value ?? "").trim();
+  return str.toLowerCase() === "null" ? "" : str;
 }
 
 function parseMustHave(raw: string): { met: number; total: number } | null {
@@ -271,6 +276,14 @@ function ExpandableTextCell({
     </div>
   );
 }
+
+function ValueOrNotAvailable({ text }: { text: string }) {
+  if (text === NOT_AVAILABLE) {
+    return <span className="text-xs italic text-slate-400">{NOT_AVAILABLE}</span>;
+  }
+  return <>{text}</>;
+}
+
 /* ------------------------------------------------------------------ */
 /* Cell renderers                                                      */
 /* ------------------------------------------------------------------ */
@@ -424,6 +437,12 @@ export default function InterviewEvaluationPage() {
   const [sendingMail, setSendingMail] = useState<string | null>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
+  const mainScrollRef = useRef<HTMLDivElement | null>(null);
+  const topScrollRef = useRef<HTMLDivElement | null>(null);
+  const [tableScrollWidth, setTableScrollWidth] = useState<number>(3800);
+  const isSyncingScroll = useRef(false);
+
+
   /* ---------------- feedback modal state ---------------- */
   const [feedbackFor, setFeedbackFor] = useState<Candidate | null>(null);
   const [feedbackDraft, setFeedbackDraft] = useState<string>("");
@@ -471,26 +490,51 @@ export default function InterviewEvaluationPage() {
         // email is stable across reorders; index fallback only if email is missing
         id: email && email.toLowerCase() !== "null" ? email : `row-${i}`,
         name,
-        role: titleKey ? String(datas[titleKey][i] ?? NOT_AVAILABLE) : NOT_AVAILABLE,
+        role: titleKey ? (cleanValue(datas[titleKey]?.[i]) || NOT_AVAILABLE) : NOT_AVAILABLE,
         email,
-        phone: phoneKey ? String(datas[phoneKey][i] ?? "") : "",
+        phone: phoneKey ? cleanValue(datas[phoneKey]?.[i]) : "",
         cvScore: scoreKey ? toNumber(datas[scoreKey][i]) : 0,
-        cvLink: cvLinkKey ? String(datas[cvLinkKey][i] ?? "") : "",
-        aiConfidenceLevel: aiConfidenceKey ? String(datas[aiConfidenceKey][i] ?? "") : "",
-        strengths: strengthsKey ? String(datas[strengthsKey][i] ?? "") : "",
-        gapRisk: gapRiskKey ? String(datas[gapRiskKey][i] ?? "") : "",
+        cvLink: cvLinkKey ? cleanValue(datas[cvLinkKey]?.[i]) : "",
+        aiConfidenceLevel: aiConfidenceKey ? cleanValue(datas[aiConfidenceKey]?.[i]) : "",
+        strengths: strengthsKey ? cleanValue(datas[strengthsKey]?.[i]) : "",
+        gapRisk: gapRiskKey ? cleanValue(datas[gapRiskKey]?.[i]) : "",
 
-        summary: summaryKey ? String(datas[summaryKey][i] ?? "") : "",
-        salary: salaryKey ? String(datas[salaryKey][i] ?? "") : "",
-        noticePeriod: noticePeriodKey ? String(datas[noticePeriodKey][i] ?? "") : "",
-        skills: skillsKey ? String(datas[skillsKey][i] ?? "") : "",
-        experience: experienceKey ? String(datas[experienceKey][i] ?? "") : "",
+        summary: summaryKey ? cleanValue(datas[summaryKey]?.[i]) : "",
+        salary: salaryKey ? cleanValue(datas[salaryKey]?.[i]) : "",
+        noticePeriod: noticePeriodKey ? cleanValue(datas[noticePeriodKey]?.[i]) : "",
+        skills: skillsKey ? cleanValue(datas[skillsKey]?.[i]) : "",
+        experience: experienceKey ? cleanValue(datas[experienceKey]?.[i]) : "",
         // aiAssessment: aiAssessmentKey ? String(datas[aiAssessmentKey][i] ?? "") : "",
-        mustHaveRequirements: mustHaveKey ? String(datas[mustHaveKey][i] ?? "") : "",
+        mustHaveRequirements: mustHaveKey ? cleanValue(datas[mustHaveKey]?.[i]) : "",
       });
     }
     return list;
   }, [datas]);
+
+  useEffect(() => {
+    const measure = () => {
+      if (mainScrollRef.current) setTableScrollWidth(mainScrollRef.current.scrollWidth);
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [candidates]);
+
+  const handleMainScroll = () => {
+    if (isSyncingScroll.current) { isSyncingScroll.current = false; return; }
+    if (mainScrollRef.current && topScrollRef.current) {
+      isSyncingScroll.current = true;
+      topScrollRef.current.scrollLeft = mainScrollRef.current.scrollLeft;
+    }
+  };
+
+  const handleTopScroll = () => {
+    if (isSyncingScroll.current) { isSyncingScroll.current = false; return; }
+    if (mainScrollRef.current && topScrollRef.current) {
+      isSyncingScroll.current = true;
+      mainScrollRef.current.scrollLeft = topScrollRef.current.scrollLeft;
+    }
+  };
 
   /* ---------------- total = average of CV and interview score ---------------- */
   const totalOf = useCallback(
@@ -791,293 +835,317 @@ export default function InterviewEvaluationPage() {
         </div>
 
         {/* Table */}
-        <div className="mt-4 overflow-x-auto rounded-lg border border-slate-200">
-          <table className="w-full text-left border-collapse table-fixed min-w-[3800px]">
-            <colgroup>
-              <col style={{ width: "3%" }} />
-              {COLUMNS.map((col) => (
-                <col key={col.key} style={{ width: col.width }} />
-              ))}
-              <col style={{ width: "4%" }} />
-              <col style={{ width: "5%" }} />
-              <col style={{ width: "4%" }} />
-              <col style={{ width: "7%" }} />
-              <col style={{ width: "5%" }} />
-              <col style={{ width: "7%" }} />
-              <col style={{ width: "7%" }} />
-            </colgroup>
-
-            <thead className="bg-slate-100 text-xs font-bold text-slate-600">
-              <tr>
-                <th className="px-3 py-3">Rank</th>
+        <style jsx>{`
+  .no-native-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-native-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+`}</style>
+        <div className="relative mt-4">
+          <div
+            ref={mainScrollRef}
+            onScroll={handleMainScroll}
+            className="overflow-x-auto rounded-lg border border-slate-200 no-native-scrollbar"
+          >
+            <table className="w-full text-left border-collapse table-fixed min-w-[3800px]">
+              <colgroup>
+                <col style={{ width: "3%" }} />
                 {COLUMNS.map((col) => (
-                  <th key={col.key} className="px-3 py-3">
-                    {col.label}
-                  </th>
+                  <col key={col.key} style={{ width: col.width }} />
                 ))}
-                <th className="px-3 py-3">CV Score (%)</th>
-                <th className="px-3 py-3">Interview Score (100)</th>
-                <th className="px-3 py-3">Total Score</th>
-                <th className="px-3 py-3">AI Recommendation</th>
-                <th className="px-3 py-3">Final Status</th>
-                <th className="px-3 py-3">Feedback</th>
-                <th className="px-3 py-3">Confirmation Mail</th>
-              </tr>
-            </thead>
+                <col style={{ width: "4%" }} />
+                <col style={{ width: "5%" }} />
+                <col style={{ width: "4%" }} />
+                <col style={{ width: "7%" }} />
+                <col style={{ width: "5%" }} />
+                <col style={{ width: "7%" }} />
+                <col style={{ width: "7%" }} />
+              </colgroup>
 
-            <tbody className="divide-y divide-slate-100 text-sm">
-              {rankedRows.length === 0 ? (
+              <thead className="bg-slate-100 text-xs font-bold text-slate-600">
                 <tr>
-                  <td colSpan={COLUMNS.length + 7} className="px-3 py-10 text-center text-slate-500">
-                    {datas === null || evalsLoading
-                      ? "Loading candidates…"
-                      : `No candidate reached ${minScore}. Lower the score to see more people.`}
-                  </td>
+                  <th className="px-3 py-3">Rank</th>
+                  {COLUMNS.map((col) => (
+                    <th key={col.key} className="px-3 py-3">
+                      {col.label}
+                    </th>
+                  ))}
+                  <th className="px-3 py-3">CV Score (%)</th>
+                  <th className="px-3 py-3">Interview Score (100)</th>
+                  <th className="px-3 py-3">Total Score</th>
+                  <th className="px-3 py-3">AI Recommendation</th>
+                  <th className="px-3 py-3">Final Status</th>
+                  <th className="px-3 py-3">Feedback</th>
+                  <th className="px-3 py-3">Confirmation Mail</th>
                 </tr>
-              ) : (
-                rankedRows.map(({ candidate, interview, total, rank }) => {
-                  const chosen = statuses[candidate.id];
-                  const isRecommended = total !== null && total >= minScore;
-                  const recommendation = getAiRecommendation(
-                    candidate.cvScore,
-                    interview,
-                    total,
-                    parseMustHave(candidate.mustHaveRequirements)
-                  );
-                  const rowTone =
-                    chosen === "not_selected"
-                      ? "bg-rose-50"
-                      : chosen === "hired"
-                        ? "bg-violet-50"
-                        : chosen === "selected"
-                          ? "bg-sky-50"
-                          : isRecommended
-                            ? "bg-emerald-50/50"
-                            : "bg-white";
+              </thead>
 
-                  return (
-                    <tr key={candidate.id} className={rowTone}>
-                      <td className="px-3 py-3 align-top">
-                        <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-slate-800 text-xs font-semibold text-white">
-                          {rank}
-                        </span>
-                      </td>
+              <tbody className="divide-y divide-slate-100 text-sm">
+                {rankedRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={COLUMNS.length + 7} className="px-3 py-10 text-center text-slate-500">
+                      {datas === null || evalsLoading
+                        ? "Loading candidates…"
+                        : `No candidate reached ${minScore}. Lower the score to see more people.`}
+                    </td>
+                  </tr>
+                ) : (
+                  rankedRows.map(({ candidate, interview, total, rank }) => {
+                    const chosen = statuses[candidate.id];
+                    const isRecommended = total !== null && total >= minScore;
+                    const recommendation = getAiRecommendation(
+                      candidate.cvScore,
+                      interview,
+                      total,
+                      parseMustHave(candidate.mustHaveRequirements)
+                    );
+                    const rowTone =
+                      chosen === "not_selected"
+                        ? "bg-rose-50"
+                        : chosen === "hired"
+                          ? "bg-violet-50"
+                          : chosen === "selected"
+                            ? "bg-sky-50"
+                            : isRecommended
+                              ? "bg-emerald-50/50"
+                              : "bg-white";
 
-                      {/* Render dynamic columns from COLUMNS */}
-                      {COLUMNS.map((col) => {
-                        const isExpanded = expandedRows.has(`${candidate.id}-${col.key}`);
-                        const toggleExpand = () => {
-                          const key = `${candidate.id}-${col.key}`;
-                          setExpandedRows((prev) => {
-                            const newSet = new Set(prev);
-                            if (newSet.has(key)) newSet.delete(key);
-                            else newSet.add(key);
-                            return newSet;
-                          });
-                        };
-                        let cellContent: any = "NOT_AVAILABLE";
-                        switch (col.key) {
-                          case "fullname":
-                            cellContent = (
-                              <button
-                                type="button"
-                                onClick={() => setDetailForId(candidate.id)}
-                                className="text-left font-medium text-slate-800 hover:text-teal-700 hover:underline"
-                              >
-                                {candidate.name}
-                              </button>
-                            );
-                            break;
-                          case "formtitle":
-                            cellContent = candidate.role;
-                            break;
-                          case "email":
-                            cellContent = candidate.email;
-                            break;
-                          case "phoneno":
-                            cellContent = candidate.phone || "NOT_AVAILABLE";
-                            break;
-                          case "cvlink":
-                            cellContent = candidate.cvLink ? (
-                              <a href={candidate.cvLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs">
-                                View CV
-                              </a>
-                            ) : ("NOT_AVAILABLE");
-                            break;
-                          case "atsscore":
-                            cellContent = `${candidate.cvScore}%`;
-                            break;
-                          case "aiconfidencelevel":
-                            cellContent = candidate.aiConfidenceLevel || "NOT_AVAILABLE";
-                            break;
-                          case "strengths":
-                            cellContent = <ExpandableTextCell text={candidate.strengths || "NOT_AVAILABLE"} isExpanded={isExpanded} onToggle={toggleExpand} />;
-                            break;
-                          case "gaprisk":
-                            cellContent = <ExpandableTextCell text={candidate.gapRisk || "NOT_AVAILABLE"} isExpanded={isExpanded} onToggle={toggleExpand} />;
-                            break;
-                          case "summarycomment":
-                            cellContent = <ExpandableTextCell text={candidate.summary || "NOT_AVAILABLE"} isExpanded={isExpanded} onToggle={toggleExpand} />;
-                            break;
-                          case "salary":
-                            cellContent = candidate.salary || "NOT_AVAILABLE";
-                            break;
-                          case "noticeperiod":
-                            cellContent = candidate.noticePeriod || "NOT_AVAILABLE";
-                            break;
-                          case "skills":
-                            cellContent = <ExpandableTextCell text={candidate.skills || "NOT_AVAILABLE"} isExpanded={isExpanded} onToggle={toggleExpand} />;
-                            break;
-                          case "experience":
-                            cellContent = <ExpandableTextCell text={candidate.experience || "NOT_AVAILABLE"} isExpanded={isExpanded} onToggle={toggleExpand} />;
-                            break;
-                          // case "aiassesment":
-                          //   cellContent = <ExpandableTextCell text={candidate.aiAssessment || "—"} isExpanded={isExpanded} onToggle={toggleExpand} />;
-                          //   break;
-                          case "musthaverequirements":
-                            cellContent = <ExpandableTextCell text={candidate.mustHaveRequirements || "NOT_AVAILABLE"} isExpanded={isExpanded} onToggle={toggleExpand} />;
-                            break;
-                        }
-                        return (
-                          <td key={col.key} className="px-3 py-3 text-slate-700 text-xs align-top">
-                            {cellContent}
-                          </td>
-                        );
-                      })}
+                    return (
+                      <tr key={candidate.id} className={rowTone}>
+                        <td className="px-3 py-3 align-top">
+                          <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-slate-800 text-xs font-semibold text-white">
+                            {rank}
+                          </span>
+                        </td>
 
-                      <td className="px-3 py-3">
-                        <CvScoreBar value={candidate.cvScore} />
-                      </td>
+                        {/* Render dynamic columns from COLUMNS */}
+                        {COLUMNS.map((col) => {
+                          const isExpanded = expandedRows.has(`${candidate.id}-${col.key}`);
+                          const toggleExpand = () => {
+                            const key = `${candidate.id}-${col.key}`;
+                            setExpandedRows((prev) => {
+                              const newSet = new Set(prev);
+                              if (newSet.has(key)) newSet.delete(key);
+                              else newSet.add(key);
+                              return newSet;
+                            });
+                          };
+                          let cellContent: any = NOT_AVAILABLE;
+                          switch (col.key) {
+                            case "fullname":
+                              cellContent = (
+                                <button
+                                  type="button"
+                                  onClick={() => setDetailForId(candidate.id)}
+                                  className="text-left font-medium text-slate-800 hover:text-teal-700 hover:underline"
+                                >
+                                  {candidate.name}
+                                </button>
+                              );
+                              break;
+                            case "formtitle":
+                              cellContent = candidate.role;
+                              break;
+                            case "email":
+                              cellContent = candidate.email;
+                              break;
+                            case "phoneno":
+                              cellContent = candidate.phone || NOT_AVAILABLE;
+                              break;
+                            case "cvlink":
+                              cellContent = candidate.cvLink ? (
+                                <a href={candidate.cvLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs">
+                                  View CV
+                                </a>
+                              ) : (NOT_AVAILABLE);
+                              break;
+                            case "atsscore":
+                              cellContent = `${candidate.cvScore}%`;
+                              break;
+                            case "aiconfidencelevel":
+                              cellContent = candidate.aiConfidenceLevel || NOT_AVAILABLE;
+                              break;
+                            case "strengths":
+                              cellContent = <ExpandableTextCell text={candidate.strengths || NOT_AVAILABLE} isExpanded={isExpanded} onToggle={toggleExpand} />;
+                              break;
+                            case "gaprisk":
+                              cellContent = <ExpandableTextCell text={candidate.gapRisk || NOT_AVAILABLE} isExpanded={isExpanded} onToggle={toggleExpand} />;
+                              break;
+                            case "summarycomment":
+                              cellContent = <ExpandableTextCell text={candidate.summary || NOT_AVAILABLE} isExpanded={isExpanded} onToggle={toggleExpand} />;
+                              break;
+                            case "salary":
+                              cellContent = candidate.salary || NOT_AVAILABLE;
+                              break;
+                            case "noticeperiod":
+                              cellContent = candidate.noticePeriod || NOT_AVAILABLE;
+                              break;
+                            case "skills":
+                              cellContent = <ExpandableTextCell text={candidate.skills || NOT_AVAILABLE} isExpanded={isExpanded} onToggle={toggleExpand} />;
+                              break;
+                            case "experience":
+                              cellContent = <ExpandableTextCell text={candidate.experience || NOT_AVAILABLE} isExpanded={isExpanded} onToggle={toggleExpand} />;
+                              break;
+                            // case "aiassesment":
+                            //   cellContent = <ExpandableTextCell text={candidate.aiAssessment || "—"} isExpanded={isExpanded} onToggle={toggleExpand} />;
+                            //   break;
+                            case "musthaverequirements":
+                              cellContent = <ExpandableTextCell text={candidate.mustHaveRequirements || NOT_AVAILABLE} isExpanded={isExpanded} onToggle={toggleExpand} />;
+                              break;
+                          }
+                          return (
+                            <td key={col.key} className="px-3 py-3 text-slate-700 text-xs align-top">
+                              {cellContent}
+                            </td>
+                          );
+                        })}
 
-                      {/* ---- Interview score: pen only, then score + pen ---- */}
-                      <td className="px-3 py-3">
-                        <InterviewScoreCell
-                          value={interview}
-                          onEdit={() => openScoreModal(candidate)}
-                        />
-                      </td>
+                        <td className="px-3 py-3">
+                          <CvScoreBar value={candidate.cvScore} />
+                        </td>
 
-                      <td className="px-3 py-3">
-                        <TotalScoreCell value={total} />
-                      </td>
+                        {/* ---- Interview score: pen only, then score + pen ---- */}
+                        <td className="px-3 py-3">
+                          <InterviewScoreCell
+                            value={interview}
+                            onEdit={() => openScoreModal(candidate)}
+                          />
+                        </td>
 
-                      <td className="px-3 py-3 align-top">
-                        <RecommendationBadge {...recommendation} />
-                      </td>
+                        <td className="px-3 py-3">
+                          <TotalScoreCell value={total} />
+                        </td>
 
-                      {/* ---- Final status dropdown ---- */}
-                      <td className="px-3 py-3">
-                        <div className="relative">
+                        <td className="px-3 py-3 align-top">
+                          <RecommendationBadge {...recommendation} />
+                        </td>
+
+                        {/* ---- Final status dropdown ---- */}
+                        <td className="px-3 py-3">
+                          <div className="relative">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setStatusOpenFor((open) =>
+                                  open === candidate.id ? null : candidate.id
+                                )
+                              }
+                              className={[
+                                "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold",
+                                chosen === "selected"
+                                  ? "bg-sky-500 text-white"
+                                  : chosen === "not_selected"
+                                    ? "bg-rose-100 text-rose-600 ring-1 ring-rose-300"
+                                    : chosen === "hired"
+                                      ? "bg-violet-600 text-white"
+                                      : recommendation.verdict === "Do Not Hire"
+                                        ? "bg-rose-100 text-rose-600 ring-1 ring-rose-300"
+                                        : recommendation.verdict === "Hire"
+                                          ? "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-300"
+                                          : "bg-slate-100 text-slate-500 ring-1 ring-slate-300",
+                              ].join(" ")}
+                            >
+                              {chosen
+                                ? STATUS_OPTIONS.find((o) => o.value === chosen)?.label
+                                : recommendation.verdict === "Do Not Hire"
+                                  ? "Not Selected"
+                                  : recommendation.verdict === "Hire"
+                                    ? "Recommended"
+                                    : "Pending"}
+                              <ChevronIcon />
+                            </button>
+
+                            {statusOpenFor === candidate.id ? (
+                              <>
+                                <div
+                                  className="fixed inset-0 z-10"
+                                  onClick={() => setStatusOpenFor(null)}
+                                  aria-hidden="true"
+                                />
+                                <div className="absolute left-0 z-20 mt-2 w-40 rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
+                                  {STATUS_OPTIONS.map((option) => (
+                                    <button
+                                      key={option.value}
+                                      type="button"
+                                      onClick={() => changeStatus(candidate, option.value)}
+                                      className={[
+                                        "block w-full rounded-md px-3 py-2 text-left text-sm",
+                                        chosen === option.value
+                                          ? "bg-teal-50 font-medium text-teal-700"
+                                          : "text-slate-600 hover:bg-slate-50",
+                                      ].join(" ")}
+                                    >
+                                      {option.label}
+                                    </button>
+                                  ))}
+                                </div>
+                              </>
+                            ) : null}
+                          </div>
+                        </td>
+
+                        {/* ---- Feedback ---- */}
+                        <td className="px-3 py-3">
+                          {feedbacks[candidate.id] ? (
+                            <button
+                              type="button"
+                              onClick={() => openFeedback(candidate, "view")}
+                              className="rounded-md bg-sky-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-600"
+                            >
+                              View Feedback
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => openFeedback(candidate, "edit")}
+                              className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                            >
+                              <EditIcon />
+                              Add Feedback
+                            </button>
+                          )}
+                        </td>
+
+                        {/* ---- Send confirmation mail ---- */}
+                        <td className="px-3 py-3">
                           <button
                             type="button"
-                            onClick={() =>
-                              setStatusOpenFor((open) =>
-                                open === candidate.id ? null : candidate.id
-                              )
-                            }
+                            onClick={() => sendConfirmationMail(candidate)}
+                            disabled={sendingMail === candidate.id || sentMails[candidate.id]}
                             className={[
-                              "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold",
-                              chosen === "selected"
-                                ? "bg-sky-500 text-white"
-                                : chosen === "not_selected"
-                                  ? "bg-rose-100 text-rose-600 ring-1 ring-rose-300"
-                                  : chosen === "hired"
-                                    ? "bg-violet-600 text-white"
-                                    : recommendation.verdict === "Do Not Hire"
-                                      ? "bg-rose-100 text-rose-600 ring-1 ring-rose-300"
-                                      : recommendation.verdict === "Hire"
-                                        ? "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-300"
-                                        : "bg-slate-100 text-slate-500 ring-1 ring-slate-300",
+                              "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold",
+                              sentMails[candidate.id]
+                                ? "bg-slate-200 text-slate-600 cursor-default"
+                                : "bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60",
                             ].join(" ")}
                           >
-                            {chosen
-                              ? STATUS_OPTIONS.find((o) => o.value === chosen)?.label
-                              : recommendation.verdict === "Do Not Hire"
-                                ? "Not Selected"
-                                : recommendation.verdict === "Hire"
-                                  ? "Recommended"
-                                  : "Pending"}
-                            <ChevronIcon />
+                            <MailIcon />
+                            {sentMails[candidate.id]
+                              ? "Confirmation Sent"
+                              : sendingMail === candidate.id
+                                ? "Sending…"
+                                : "Send Confirmation Mail"}
                           </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
 
-                          {statusOpenFor === candidate.id ? (
-                            <>
-                              <div
-                                className="fixed inset-0 z-10"
-                                onClick={() => setStatusOpenFor(null)}
-                                aria-hidden="true"
-                              />
-                              <div className="absolute left-0 z-20 mt-2 w-40 rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
-                                {STATUS_OPTIONS.map((option) => (
-                                  <button
-                                    key={option.value}
-                                    type="button"
-                                    onClick={() => changeStatus(candidate, option.value)}
-                                    className={[
-                                      "block w-full rounded-md px-3 py-2 text-left text-sm",
-                                      chosen === option.value
-                                        ? "bg-teal-50 font-medium text-teal-700"
-                                        : "text-slate-600 hover:bg-slate-50",
-                                    ].join(" ")}
-                                  >
-                                    {option.label}
-                                  </button>
-                                ))}
-                              </div>
-                            </>
-                          ) : null}
-                        </div>
-                      </td>
-
-                      {/* ---- Feedback ---- */}
-                      <td className="px-3 py-3">
-                        {feedbacks[candidate.id] ? (
-                          <button
-                            type="button"
-                            onClick={() => openFeedback(candidate, "view")}
-                            className="rounded-md bg-sky-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-600"
-                          >
-                            View Feedback
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => openFeedback(candidate, "edit")}
-                            className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
-                          >
-                            <EditIcon />
-                            Add Feedback
-                          </button>
-                        )}
-                      </td>
-
-                      {/* ---- Send confirmation mail ---- */}
-                      <td className="px-3 py-3">
-                        <button
-                          type="button"
-                          onClick={() => sendConfirmationMail(candidate)}
-                          disabled={sendingMail === candidate.id || sentMails[candidate.id]}
-                          className={[
-                            "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold",
-                            sentMails[candidate.id]
-                              ? "bg-slate-200 text-slate-600 cursor-default"
-                              : "bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60",
-                          ].join(" ")}
-                        >
-                          <MailIcon />
-                          {sentMails[candidate.id]
-                            ? "Confirmation Sent"
-                            : sendingMail === candidate.id
-                              ? "Sending…"
-                              : "Send Confirmation Mail"}
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+          <div
+            ref={topScrollRef}
+            onScroll={handleTopScroll}
+            className="sticky bottom-0 z-20 overflow-x-auto overflow-y-hidden bg-white"
+            style={{ height: "14px" }}
+          >
+            <div style={{ width: tableScrollWidth, height: "1px" }} />
+          </div>
         </div>
 
         {/* Card footer */}
@@ -1229,11 +1297,11 @@ export default function InterviewEvaluationPage() {
               </div>
               <div className="flex gap-2">
                 <span className="font-bold text-slate-800 shrink-0">Email:</span>
-                <span className="text-slate-600 break-words">{detailCandidate.email || "NOT_AVAILABLE"}</span>
+                <span className="text-slate-600 break-words">{detailCandidate.email || NOT_AVAILABLE}</span>
               </div>
               <div className="flex gap-2">
                 <span className="font-bold text-slate-800 shrink-0">Phone No:</span>
-                <span className="text-slate-600 break-words">{detailCandidate.phone || "NOT_AVAILABLE"}</span>
+                <span className="text-slate-600 break-words">{detailCandidate.phone || NOT_AVAILABLE}</span>
               </div>
               <div className="flex gap-2">
                 <span className="font-bold text-slate-800 shrink-0">CV Link:</span>
@@ -1252,36 +1320,36 @@ export default function InterviewEvaluationPage() {
               <div className="flex gap-2">
                 <span className="font-bold text-slate-800 shrink-0">AI Confidence Level:</span>
                 <span className="text-slate-600 break-words">
-                  {detailCandidate.aiConfidenceLevel || "NOT_AVAILABLE"}
+                  {detailCandidate.aiConfidenceLevel || NOT_AVAILABLE}
                 </span>
               </div>
               <div className="flex gap-2">
                 <span className="font-bold text-slate-800 shrink-0">Strengths:</span>
-                <span className="text-slate-600 whitespace-pre-wrap break-words">{detailCandidate.strengths || "NOT_AVAILABLE"}</span>
+                <span className="text-slate-600 whitespace-pre-wrap break-words">{detailCandidate.strengths || NOT_AVAILABLE}</span>
               </div>
               <div className="flex gap-2">
                 <span className="font-bold text-slate-800 shrink-0">Potential Gap and Risk:</span>
-                <span className="text-slate-600 whitespace-pre-wrap break-words">{detailCandidate.gapRisk || "NOT_AVAILABLE"}</span>
+                <span className="text-slate-600 whitespace-pre-wrap break-words">{detailCandidate.gapRisk || NOT_AVAILABLE}</span>
               </div>
               <div className="flex gap-2">
                 <span className="font-bold text-slate-800 shrink-0">Summary:</span>
-                <span className="text-slate-600 whitespace-pre-wrap break-words">{detailCandidate.summary || "NOT_AVAILABLE"}</span>
+                <span className="text-slate-600 whitespace-pre-wrap break-words">{detailCandidate.summary || NOT_AVAILABLE}</span>
               </div>
               <div className="flex gap-2">
                 <span className="font-bold text-slate-800 shrink-0">Expected Salary:</span>
-                <span className="text-slate-600 break-words">{detailCandidate.salary || "NOT_AVAILABLE"}</span>
+                <span className="text-slate-600 break-words">{detailCandidate.salary || NOT_AVAILABLE}</span>
               </div>
               <div className="flex gap-2">
                 <span className="font-bold text-slate-800 shrink-0">Notice Period:</span>
-                <span className="text-slate-600 break-words">{detailCandidate.noticePeriod || "NOT_AVAILABLE"}</span>
+                <span className="text-slate-600 break-words">{detailCandidate.noticePeriod || NOT_AVAILABLE}</span>
               </div>
               <div className="flex gap-2">
                 <span className="font-bold text-slate-800 shrink-0">Skills:</span>
-                <span className="text-slate-600 whitespace-pre-wrap break-words">{detailCandidate.skills || "NOT_AVAILABLE"}</span>
+                <span className="text-slate-600 whitespace-pre-wrap break-words">{detailCandidate.skills || NOT_AVAILABLE}</span>
               </div>
               <div className="flex gap-2">
                 <span className="font-bold text-slate-800 shrink-0">Experience:</span>
-                <span className="text-slate-600 whitespace-pre-wrap break-words">{detailCandidate.experience || "NOT_AVAILABLE"}</span>
+                <span className="text-slate-600 whitespace-pre-wrap break-words">{detailCandidate.experience || NOT_AVAILABLE}</span>
               </div>
               {/* <div className="flex gap-2">
                 <span className="font-bold text-slate-800 shrink-0">AI Assessment:</span>
