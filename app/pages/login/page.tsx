@@ -138,7 +138,7 @@ function LoginContent() {
               <path d="M12 2 3 7v6c0 4.5 3.8 8.3 9 9 5.2-.7 9-4.5 9-9V7l-9-5Zm0 4.2 5 2.8v4c0 3-2.2 5.6-5 6.1-2.8-.5-5-3.1-5-6.1V9l5-2.8Z" />
             </svg>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-800">CareerAI</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-800">Recruitment Automation</h1>
           <p className="text-sm text-slate-500 mt-1">
             {isRegister ? "Create your account" : "Sign in to your account"}
           </p>
