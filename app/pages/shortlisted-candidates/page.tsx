@@ -111,6 +111,88 @@ function ExpandableSkills({ skills }: { skills: string[] }) {
   );
 }
 
+// Native <input type="number"> spin buttons only render on hover/focus in
+// Chrome and do not render at all on mobile, so we draw our own
+// increment/decrement buttons instead of relying on the browser ones.
+// The typed text is tracked as local state (instead of coercing to a
+// number on every keystroke) so backspacing to an empty field does not
+// immediately snap back to "0" and make backspace look broken.
+function NumberStepper({
+  value,
+  onChange,
+  min,
+  max,
+  ariaLabel,
+}: {
+  value: number;
+  onChange: (next: number) => void;
+  min?: number;
+  max?: number;
+  ariaLabel?: string;
+}) {
+  const [raw, setRaw] = useState(String(value));
+
+  const clamp = (n: number) => {
+    let next = n;
+    if (min !== undefined) next = Math.max(min, next);
+    if (max !== undefined) next = Math.min(max, next);
+    return next;
+  };
+
+  const commit = (nextRaw: string) => {
+    setRaw(nextRaw);
+    if (nextRaw === "" || nextRaw === "-") {
+      onChange(0);
+      return;
+    }
+    const parsed = Number(nextRaw);
+    if (Number.isFinite(parsed)) onChange(clamp(parsed));
+  };
+
+  const step = (delta: number) => {
+    const current = Number(raw);
+    const base = Number.isFinite(current) ? current : 0;
+    const next = clamp(base + delta);
+    setRaw(String(next));
+    onChange(next);
+  };
+
+  return (
+    <span className="inline-flex items-stretch h-7 rounded-md border border-slate-300 overflow-hidden focus-within:ring-2 focus-within:ring-indigo-100 focus-within:border-indigo-500">
+      <input
+        type="text"
+        inputMode="numeric"
+        pattern="-?[0-9]*"
+        value={raw}
+        onChange={(e) => {
+          const v = e.target.value;
+          if (v === "" || /^-?\d*$/.test(v)) commit(v);
+        }}
+        aria-label={ariaLabel}
+        className="w-10 px-1.5 text-sm font-bold text-slate-800 border-0 bg-transparent focus:outline-none"
+      />
+      <span className="flex flex-col border-l border-slate-300 shrink-0">
+        <button
+          type="button"
+          onClick={() => step(1)}
+          aria-label={ariaLabel ? `Increase ${ariaLabel}` : "Increase"}
+          className="flex-1 flex items-center justify-center w-6 leading-none text-[9px] text-slate-500 bg-slate-50 hover:bg-slate-100 active:bg-slate-200 border-b border-slate-300"
+        >
+          ▲
+        </button>
+        <button
+          type="button"
+          onClick={() => step(-1)}
+          aria-label={ariaLabel ? `Decrease ${ariaLabel}` : "Decrease"}
+          className="flex-1 flex items-center justify-center w-6 leading-none text-[9px] text-slate-500 bg-slate-50 hover:bg-slate-100 active:bg-slate-200"
+        >
+          ▼
+        </button>
+      </span>
+    </span>
+  );
+}
+
 export default function Dashboard() {
   
   const WebHook_Url = "sdfgh";
@@ -543,30 +625,22 @@ export default function Dashboard() {
             <div className="flex flex-wrap items-center gap-4">
               <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                 Candidates with scores {">"}
-                <input
-                  type="number"
+<NumberStepper
+                  value={filterScore}
+                  onChange={setFilterScore}
                   min={0}
                   max={100}
-                  value={filterScore}
-                  onChange={(e) => {
-                    const next = Number(e.target.value);
-                    setFilterScore(Number.isFinite(next) ? next : 0);
-                  }}
-                  className="w-14 px-1.5 py-0.5 text-sm font-bold text-slate-800 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500"
+                  ariaLabel="Minimum score filter"
                 />
                 %
               </span>
               <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                 Must-have skills {">"}
-                <input
-                  type="number"
-                  min={0}
+<NumberStepper
                   value={filterMustHaveSkill}
-                  onChange={(e) => {
-                    const next = Number(e.target.value);
-                    setFilterMustHaveSkill(Number.isFinite(next) ? next : 0);
-                  }}
-                  className="w-14 px-1.5 py-0.5 text-sm font-bold text-slate-800 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500"
+                  onChange={setFilterMustHaveSkill}
+                  min={0}
+                  ariaLabel="Minimum must-have skills filter"
                 />
               </span>
             </div>
