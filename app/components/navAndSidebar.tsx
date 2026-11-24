@@ -24,7 +24,6 @@ interface pageInfoProps {
   children?: ReactNode;
 }
 
-<<<<<<< Updated upstream
 const ICONS: Record<string, ReactNode> = {
   "job-requisitions": <PiSuitcaseSimpleFill className="w-4 h-4" />,
   "post-approval": <PiCheckCircleFill className="w-4 h-4" />,
@@ -34,22 +33,6 @@ const ICONS: Record<string, ReactNode> = {
   "hired-candidates": <FaUserTie className="w-3.5 h-3.5" />,
   setting: <FaSlidersH className="w-3.5 h-3.5" />,
 };
-=======
-interface PageItem {
-  name: string;
-  path: string;
-  icon: ReactNode;
-}
-
-const pathVar: PageItem[] = [
-  { name: "Job Requisitions", path: "job-requisitions", icon: <PiSuitcaseSimpleFill className="w-4 h-4" /> },
-  { name: "Post Approval", path: "post-approval", icon: <PiCheckCircleFill className="w-4 h-4" /> },
-  { name: "CV Bank and Ranking", path: "candidate-ranking", icon: <PiRankingLight className="w-4 h-4" /> },
-  { name: "Shortlisted Candidates", path: "shortlisted-candidates", icon: <FaUserCheck className="w-3.5 h-3.5" /> },
-  { name: "Interview Evaluation", path: "interview-evaluation", icon: <FaClipboardCheck className="w-3.5 h-3.5" /> },
-  // { name: "Settings", path: "setting", icon: <FaSlidersH className="w-3.5 h-3.5" /> },
-];
->>>>>>> Stashed changes
 
 function SidebarContent({ highlightLink, onLinkClick }: { highlightLink: string; onLinkClick?: () => void }) {
   const { t } = useLanguage();

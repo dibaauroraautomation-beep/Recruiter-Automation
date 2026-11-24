@@ -810,14 +810,11 @@ export default function CandidateScoring() {
 
   return (
     <NavAndSidebar
-<<<<<<< Updated upstream:app/pages/cv-bank-and-ranking/page.tsx
-=======
       pageInfo={[
         "CV Bank and Ranking",
         "Applicant data collected from the job forms is evaluated against the criteria defined for each role.",
-        "candidate-ranking",
+        "cv-bank-and-ranking",
       ]}
->>>>>>> Stashed changes:app/pages/candidate-ranking/page.tsx
       user={[
         user.name,
         user.profilePic,
