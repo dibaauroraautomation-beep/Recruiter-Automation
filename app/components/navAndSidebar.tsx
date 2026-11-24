@@ -4,7 +4,7 @@ import { useState, useEffect, ReactNode } from "react";
 import Link from "next/link";
 import { useLanguage } from "../contexts/LanguageContext";
 import { PiSuitcaseSimpleFill, PiRankingLight, PiCheckCircleFill } from "react-icons/pi";
-import { FaUserCheck, FaClipboardCheck, FaSlidersH } from "react-icons/fa";
+import { FaUserCheck, FaClipboardCheck, FaCog } from "react-icons/fa";
 import { FaX } from "react-icons/fa6";
 import { FaBars, FaCaretDown, FaSignOutAlt } from "react-icons/fa";
 
@@ -33,25 +33,25 @@ const pathVar: PageItem[] = [
   { name: "Candidate Ranking", path: "candidate-ranking", icon: <PiRankingLight className="w-4 h-4" /> },
   { name: "Shortlisted Candidates", path: "shortlisted-candidates", icon: <FaUserCheck className="w-3.5 h-3.5" /> },
   { name: "Interview Evaluation", path: "interview-evaluation", icon: <FaClipboardCheck className="w-3.5 h-3.5" /> },
-  { name: "Settings", path: "setting", icon: <FaSlidersH className="w-3.5 h-3.5" /> },
+  // { name: "Settings", path: "setting", icon: <FaSlidersH className="w-3.5 h-3.5" /> },
 ];
 
 function SidebarContent({ highlightLink, onLinkClick }: { highlightLink: string; onLinkClick?: () => void }) {
   const { t } = useLanguage();
 
   return (
-    <div className="flex flex-col min-h-0">
+    <div className="flex flex-col flex-1 min-h-0">
       <div className="flex items-center gap-3 px-5 h-16 border-b border-white/10 shrink-0">
-      <Link href="/">
-        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md shadow-indigo-950/40">
-          <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 2 3 7v6c0 4.5 3.8 8.3 9 9 5.2-.7 9-4.5 9-9V7l-9-5Zm0 4.2 5 2.8v4c0 3-2.2 5.6-5 6.1-2.8-.5-5-3.1-5-6.1V9l5-2.8Z" />
-          </svg>
-        </div>
-        <div className="leading-tight">
-          <p className="text-white font-bold text-sm">{t("CareerAI")}</p>
-          <p className="text-[10px] text-slate-400">{t("Your AI Career Assistant")}</p>
-        </div>
+        <Link href="/">
+          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md shadow-indigo-950/40">
+            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2 3 7v6c0 4.5 3.8 8.3 9 9 5.2-.7 9-4.5 9-9V7l-9-5Zm0 4.2 5 2.8v4c0 3-2.2 5.6-5 6.1-2.8-.5-5-3.1-5-6.1V9l5-2.8Z" />
+            </svg>
+          </div>
+          <div className="leading-tight">
+            <p className="text-white font-bold text-sm">{t("CareerAI")}</p>
+            <p className="text-[10px] text-slate-400">{t("Your AI Career Assistant")}</p>
+          </div>
         </Link>
       </div>
 
@@ -77,11 +77,27 @@ function SidebarContent({ highlightLink, onLinkClick }: { highlightLink: string;
         })}
       </nav>
 
-      <div className="px-5 py-4 border-t border-white/10">
-        <div className="rounded-xl bg-white/5 border border-white/10 px-4 py-3">
+      <div className="px-5 py-4 border-t border-white/10 space-y-3">
+        {/* <div className="rounded-xl bg-white/5 border border-white/10 px-4 py-3">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">{t("Your AI Career Assistant")}</p>
           <p className="mt-1 text-[11px] text-slate-400 leading-relaxed">Post jobs, score candidates, and hire faster with AI.</p>
-        </div>
+        </div> */}
+
+        {/* Settings: icon only, bottom left */}
+        <Link
+          href="/pages/setting"
+          onClick={onLinkClick}
+          title={t("Settings")}
+          aria-label={t("Settings")}
+          className={
+            "inline-flex items-center justify-center w-9 h-9 rounded-lg transition " +
+            (highlightLink === "setting"
+              ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-indigo-950/40"
+              : "text-slate-400 hover:bg-white/5 hover:text-white")
+          }
+        >
+          <FaCog className="w-4 h-4" />
+        </Link>
       </div>
     </div>
   );
