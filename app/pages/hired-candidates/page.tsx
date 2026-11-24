@@ -724,10 +724,11 @@ export default function InterviewEvaluationPage() {
 
   return (
     <NavAndSidebar user={user} sidebarHeight="h-screen">
-      {/* data fetcher only — renders no UI */}
-      <div className="hidden">
+      {/* search box + "+" column filters; also loads and filters the data */}
+      <div className="mb-4">
         <TableComponent
-          title=""
+          title="Candidates"
+          headerOnly
           cols={[]}
           baseUrl={CANDIDATE_DATA_URL}
           userId="gh"
@@ -761,17 +762,6 @@ export default function InterviewEvaluationPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-slate-500 focus-within:border-teal-500">
-              <SearchIcon />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search"
-                className="w-40 bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
-                aria-label="Search candidates"
-              />
-            </div>
 
             <button
               type="button"

@@ -3,7 +3,7 @@ import Link from "next/link";
 import NavAndSidebar from "@/app/components/navAndSidebar";
 import GoogleSheetReader from "@/app/components/GoogleSheetReader";
 import InteractiveBadge from "@/app/components/IneractiveBadge";
-import { useState, useCallback, useEffect, useMemo, ReactNode } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef, ReactNode } from "react";
 import { useUser } from "@/app/contexts/UserContext";
 import Card from "@/app/components/FeatureCard";
 import { PiSuitcaseSimpleFill } from "react-icons/pi";
@@ -563,16 +563,67 @@ async function TableComponentScapDatabackEndModify(
   return result;
 }
 
-// Row-wise search across a column-oriented dataset: keeps any row where
-// at least one column's value contains the (case-insensitive) search term.
+// ---------------------------------------------------------------------------
+// Column filter chips (opened with the "+" button in the search box)
+// ---------------------------------------------------------------------------
+
+// How a chip filters its column. It is picked from the column's stored data:
+//   number -> every value is numeric          => "is greater than" [number input]
+//   select -> few repeating values (<= 8)      => "is any of"       [checkbox list]
+//   text   -> anything else                    => "contains"        [text input]
+type ColumnKind = "number" | "select" | "text";
+
+type FilterChip = {
+  id: number;
+  column: string;
+  kind: ColumnKind;
+  value: string; // number / text input
+  selected: string[]; // select checkboxes
+};
+
+const MISSING_VALUES = new Set(["", "null", "undefined", "not available", "n/a"]);
+const isMissing = (v: unknown): boolean =>
+  v === null || v === undefined || MISSING_VALUES.has(String(v).trim().toLowerCase());
+
+function detectColumnKind(values: string[] = []): ColumnKind {
+  const present = values.filter((v) => !isMissing(v)).map((v) => String(v).trim());
+  if (present.length === 0) return "text";
+  if (present.every((v) => !Number.isNaN(Number(v)))) return "number";
+  const unique = new Set(present);
+  if (unique.size <= 8 && unique.size < present.length) return "select";
+  return "text";
+}
+
+const uniqueValues = (values: string[] = []): string[] => [
+  ...new Set(values.map((v) => (isMissing(v) ? "Not Available" : String(v)))),
+];
+
+function chipMatches(chip: FilterChip, cell: unknown): boolean {
+  if (chip.kind === "number") {
+    if (chip.value.trim() === "") return true;
+    return !isMissing(cell) && Number(cell) > Number(chip.value);
+  }
+  if (chip.kind === "select") {
+    if (chip.selected.length === 0) return true;
+    return chip.selected.includes(isMissing(cell) ? "Not Available" : String(cell));
+  }
+  const query = chip.value.trim().toLowerCase();
+  if (!query) return true;
+  return !isMissing(cell) && String(cell).toLowerCase().includes(query);
+}
+
+// Row-wise filtering across a column-oriented dataset: keeps a row when
+//  - (if a search term is set) at least one column contains the term, AND
+//  - every filter chip matches its column.
 function filterColumnData(
   data: ScapColumnData | null,
   term: string,
+  filters: FilterChip[] = [],
 ): ScapColumnData | null {
   if (!data) return data;
 
   const query = term.trim().toLowerCase();
-  if (!query) return data;
+  if (!query && filters.length === 0) return data;
 
   const headers = Object.keys(data);
   if (headers.length === 0) return data;
@@ -581,15 +632,19 @@ function filterColumnData(
 
   const matchingRows: number[] = [];
   for (let i = 0; i < rowCount; i++) {
-    const rowMatches = headers.some((h) => {
-      const cell = data[h]?.[i];
-      return (
-        cell !== undefined &&
-        cell !== null &&
-        String(cell).toLowerCase().includes(query)
-      );
-    });
-    if (rowMatches) matchingRows.push(i);
+    const termOk =
+      !query ||
+      headers.some((h) => {
+        const cell = data[h]?.[i];
+        return (
+          cell !== undefined &&
+          cell !== null &&
+          String(cell).toLowerCase().includes(query)
+        );
+      });
+    if (termOk && filters.every((f) => chipMatches(f, data[f.column]?.[i]))) {
+      matchingRows.push(i);
+    }
   }
 
   const filtered: ScapColumnData = {};
@@ -597,6 +652,252 @@ function filterColumnData(
     filtered[h] = matchingRows.map((i) => data[h]?.[i] ?? "null");
   });
   return filtered;
+}
+
+const CHIP_LABEL: Record<ColumnKind, string> = {
+  number: "is greater than",
+  select: "is any of",
+  text: "contains",
+};
+
+// Search box + "+" button (lists the table's columns) + filter chips
+function FilterBar({
+  data,
+  searchTerm,
+  onSearchChange,
+  filters,
+  onFiltersChange,
+}: {
+  data: ScapColumnData | null;
+  searchTerm: string;
+  onSearchChange: (v: string) => void;
+  filters: FilterChip[];
+  onFiltersChange: (f: FilterChip[]) => void;
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuQuery, setMenuQuery] = useState("");
+  const [openChipId, setOpenChipId] = useState<number | null>(null);
+  const nextId = useRef(1);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  // close the column menu / checkbox popup when clicking elsewhere or pressing Esc
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) {
+        setMenuOpen(false);
+        setOpenChipId(null);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setMenuOpen(false);
+        setOpenChipId(null);
+      }
+    };
+    document.addEventListener("mousedown", onClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, []);
+
+  const columns = Object.keys(data ?? {}).filter((c) =>
+    c.toLowerCase().includes(menuQuery.trim().toLowerCase()),
+  );
+
+  const addChip = (column: string) => {
+    onFiltersChange([
+      ...filters,
+      {
+        id: nextId.current++,
+        column,
+        kind: detectColumnKind(data?.[column]),
+        value: "",
+        selected: [],
+      },
+    ]);
+    setMenuOpen(false);
+    setMenuQuery("");
+  };
+
+  const updateChip = (id: number, patch: Partial<FilterChip>) =>
+    onFiltersChange(filters.map((f) => (f.id === id ? { ...f, ...patch } : f)));
+
+  const removeChip = (id: number) =>
+    onFiltersChange(filters.filter((f) => f.id !== id));
+
+  const underline =
+    "border-0 border-b-[1.5px] border-indigo-500 bg-transparent outline-none text-xs text-slate-800 px-0.5";
+
+  return (
+    <div ref={rootRef} className="flex flex-col gap-3 w-full">
+      {/* search box with the + button */}
+      <div className="relative">
+        <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-1.5 w-full shadow-xs focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100 transition-all">
+          <svg
+            className="w-4 h-4 text-slate-400 shrink-0"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.603 10.601z"
+            />
+          </svg>
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder="Search jobs, companies..."
+            className="w-full text-xs text-slate-700 outline-none placeholder-slate-400 bg-transparent"
+          />
+          <button
+            type="button"
+            aria-label="Add filter"
+            title="Add filter"
+            onClick={() => {
+              setMenuOpen((o) => !o);
+              setMenuQuery("");
+            }}
+            className="w-7 h-7 shrink-0 rounded-md bg-indigo-600 text-white text-lg leading-none hover:bg-indigo-700 transition"
+          >
+            +
+          </button>
+        </div>
+
+        {menuOpen && (
+          <div className="absolute right-0 top-[calc(100%+8px)] z-20 w-60 rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
+            <input
+              autoFocus
+              type="text"
+              value={menuQuery}
+              onChange={(e) => setMenuQuery(e.target.value)}
+              placeholder="Filter by..."
+              className="mb-1.5 w-full rounded-md border-[1.5px] border-indigo-500 px-2.5 py-1.5 text-xs outline-none ring-2 ring-indigo-100"
+            />
+            <div className="max-h-56 overflow-y-auto">
+              {columns.length === 0 ? (
+                <p className="p-2.5 text-xs text-slate-400">
+                  {data ? "No matches" : "Loading columns..."}
+                </p>
+              ) : (
+                columns.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => addChip(c)}
+                    className="flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-xs text-slate-700 hover:bg-slate-100"
+                  >
+                    <svg
+                      className="w-4 h-4 shrink-0 text-slate-500"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8zM14 3v5h5"
+                      />
+                    </svg>
+                    <span className="truncate">{c}</span>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* chips */}
+      {filters.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          {filters.map((chip) => (
+            <span
+              key={chip.id}
+              className="relative inline-flex items-center gap-2.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs text-slate-600"
+            >
+              <span>
+                <b className="font-medium text-slate-900">{chip.column}</b>{" "}
+                {CHIP_LABEL[chip.kind]}
+              </span>
+
+              {chip.kind === "number" && (
+                <input
+                  type="number"
+                  value={chip.value}
+                  placeholder="0"
+                  onChange={(e) => updateChip(chip.id, { value: e.target.value })}
+                  className={`${underline} w-16`}
+                />
+              )}
+
+              {chip.kind === "text" && (
+                <input
+                  type="text"
+                  value={chip.value}
+                  placeholder="type..."
+                  onChange={(e) => updateChip(chip.id, { value: e.target.value })}
+                  className={`${underline} w-28`}
+                />
+              )}
+
+              {chip.kind === "select" && (
+                <span className="relative">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setOpenChipId(openChipId === chip.id ? null : chip.id)
+                    }
+                    className={`${underline} max-w-[160px] truncate`}
+                  >
+                    {chip.selected.length ? chip.selected.join(", ") : "Select..."}
+                  </button>
+                  {openChipId === chip.id && (
+                    <div className="absolute left-0 top-[calc(100%+8px)] z-20 min-w-[150px] rounded-lg border border-slate-200 bg-white p-1.5 shadow-lg">
+                      {uniqueValues(data?.[chip.column]).map((v) => (
+                        <label
+                          key={v}
+                          className="flex cursor-pointer items-center gap-2 whitespace-nowrap rounded-md px-2 py-1.5 hover:bg-slate-100"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={chip.selected.includes(v)}
+                            onChange={() =>
+                              updateChip(chip.id, {
+                                selected: chip.selected.includes(v)
+                                  ? chip.selected.filter((x) => x !== v)
+                                  : [...chip.selected, v],
+                              })
+                            }
+                          />
+                          {v}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </span>
+              )}
+
+              <button
+                type="button"
+                aria-label={`Remove ${chip.column} filter`}
+                onClick={() => removeChip(chip.id)}
+                className="text-base leading-none text-slate-500 hover:text-slate-800"
+              >
+                &times;
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function TableComponent({
@@ -608,6 +909,7 @@ export default function TableComponent({
   onData,
   debug = false,
   dataBaseId ,
+  headerOnly = false,
 }: {
   children?: ReactNode | ((data: ScapColumnData | null) => ReactNode);
   title: ReactNode;
@@ -617,6 +919,9 @@ export default function TableComponent({
   onData?: (data: ScapColumnData) => void;
   debug?: boolean;
   dataBaseId: string;
+  // true = show only the title + search box/filter chips (no table body or footer).
+  // The data is still loaded and passed to onData, already filtered.
+  headerOnly?: boolean;
 }) {
   const { user } = useUser();
 
@@ -624,12 +929,13 @@ export default function TableComponent({
   const [datas, setDatas] = useState<ScapColumnData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [filters, setFilters] = useState<FilterChip[]>([]);
 
   // Recomputed whenever the raw data or the search term changes; this is
   // the single source of truth handed to children and to onData below.
   const filteredDatas = useMemo(
-    () => filterColumnData(datas, searchTerm),
-    [datas, searchTerm],
+    () => filterColumnData(datas, searchTerm, filters),
+    [datas, searchTerm, filters],
   );
 
   // Push the (possibly filtered) data up to the parent any time it changes,
@@ -802,37 +1108,21 @@ export default function TableComponent({
       <Card
         width="100%"
         header={
-          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 w-full py-1 relative">
+          <div className="flex flex-col gap-3 w-full py-1 relative">
             <h2 className="text-sm font-bold text-slate-800 tracking-tight whitespace-nowrap">
               {title}
             </h2>
-            <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto lg:justify-end">
-              <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-1.5 w-full sm:w-[280px] shadow-xs focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100 transition-all">
-                <svg
-                  className="w-4 h-4 text-slate-400 shrink-0"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.603 10.601z"
-                  />
-                </svg>
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search jobs, companies..."
-                  className="w-full text-xs text-slate-700 outline-none placeholder-slate-400 bg-transparent"
-                />
-              </div>
-            </div>
+            <FilterBar
+              data={datas}
+              searchTerm={searchTerm}
+              onSearchChange={setSearchTerm}
+              filters={filters}
+              onFiltersChange={setFilters}
+            />
           </div>
         }
         footer={
+          headerOnly ? undefined : (
           <div className="flex items-center justify-between w-full py-2 bg-white">
             <span className="text-xs font-normal text-slate-400">
               Showing <span className="font-medium text-slate-600">1</span> to{" "}
@@ -846,8 +1136,10 @@ export default function TableComponent({
               applications
             </span>
           </div>
+          )
         }
       >
+        {!headerOnly && (
         <div className="w-full bg-white border border-slate-100 rounded-2xl shadow-xs overflow-hidden">
           <div className="overflow-x-auto">
             {typeof children === "function" ? (
@@ -925,6 +1217,7 @@ export default function TableComponent({
             )}
           </div>
         </div>
+        )}
       </Card>
 
       {debug && error && (

@@ -73,17 +73,13 @@ export default function JobPublish() {
   const { t } = useLanguage();
 
   const [form, setForm] = useState({ ...EMPTY_FORM });
-  const EDUCATION_OPTIONS = [
+    const EDUCATION_OPTIONS = [
     "Secondary School Certificate (SSC / O-Level)",
     "Higher Secondary Certificate (HSC / A-Level)",
     "Diploma",
-    "Associate Degree",
     "Bachelor's Degree",
     "Master's Degree",
-    "MBA",
-    "MPhil",
     "PhD / Doctorate",
-    "Professional Certification",
     "No formal education required",
   ];
   const [submitting, setSubmitting] = useState(false);
@@ -407,7 +403,7 @@ export default function JobPublish() {
               }}
               className={inputClass}
             >
-              <option value="">{t("Select education level")}</option>
+              <option value="">{t("Select education (AI suggests options after you enter a job title)")}</option>
               {educationOptions.map((option) => (
                 <option key={option} value={option}>
                   {aiEducationOptions.length ? option : t(option)}
