@@ -370,11 +370,6 @@ function RecommendationBadge({
 export default function InterviewEvaluationPage() {
   const { user: contextUser } = useUser();
 
-  const pageInfo: NavProps["pageInfo"] = [
-    "Interview Evaluation and Final Selection",
-    "Shortlisted candidates are reviewed here with their CV score, interview score and interviewer feedback before offers go out.",
-    "interview-evaluation",
-  ];
 
   const user: NavProps["user"] = [
     contextUser.name,
@@ -728,7 +723,7 @@ export default function InterviewEvaluationPage() {
   }
 
   return (
-    <NavAndSidebar pageInfo={pageInfo} user={user} sidebarHeight="h-screen">
+    <NavAndSidebar user={user} sidebarHeight="h-screen">
       {/* data fetcher only — renders no UI */}
       <div className="hidden">
         <TableComponent

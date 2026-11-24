@@ -454,11 +454,6 @@ export default function JobPublish() {
 
   return (
     <NavAndSidebar
-      pageInfo={[
-        t("Job Requisitions"),
-        t("Creating, optimizing, and distributing open roles across multiple external job boards, career pages, and internal networks."),
-        "job-requisitions",
-      ]}
       user={[
         user.name,
         user.profilePic,

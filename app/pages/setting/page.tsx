@@ -10,11 +10,6 @@ export default function setting() {
     <div>
       {/* 2. Capitalized Tag */}
       <NavAndSidebar
-        pageInfo={[
-          "Account & Preferences",
-          "Manage your profile details, security options, and subscription settings.",
-          "setting",
-        ]}
         user={[
           user.name,
           user.profilePic,

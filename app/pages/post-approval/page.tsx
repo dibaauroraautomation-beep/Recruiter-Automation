@@ -274,11 +274,6 @@ export default function PostApproval() {
 
   return (
     <NavAndSidebar
-      pageInfo={[
-        "Post Approval",
-        "The job vacancy will be posted to the careers page immediately once the hiring manager approves it.",
-        "post-approval",
-      ]}
       user={[
         user.name,
         user.profilePic,

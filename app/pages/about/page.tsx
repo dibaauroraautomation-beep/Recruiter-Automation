@@ -25,8 +25,8 @@ export default function about() {
         </Link>
       </div>
       <div className="mt-6">
-        <Link href="/pages/candidate-ranking" className="text-blue-400 hover:underline text-sm sm:text-base">
-          candidate-ranking
+        <Link href="/pages/cv-bank-and-ranking" className="text-blue-400 hover:underline text-sm sm:text-base">
+          cv-bank-and-ranking
         </Link>
       </div>
       <div className="mt-6">

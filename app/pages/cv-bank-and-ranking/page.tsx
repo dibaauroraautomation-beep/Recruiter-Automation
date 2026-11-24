@@ -239,11 +239,6 @@ export default function CandidateScoring() {
 
   return (
     <NavAndSidebar
-      pageInfo={[
-        "Candidate Ranking",
-        "Applicant data collected from the job forms is evaluated against the criteria defined for each role.",
-        "candidate-ranking",
-      ]}
       user={[
         user.name,
         user.profilePic,

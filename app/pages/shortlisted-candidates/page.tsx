@@ -606,11 +606,6 @@ export default function Dashboard() {
         </div>
       )}
       <NavAndSidebar
-        pageInfo={[
-          "Shortlisted Candidates",
-          "Narrowing down the entire applicant pool into a curated, high-potential segment ready for direct human interaction.",
-          "shortlisted-candidates",
-        ]}
         user={[
           user.name,
           user.profilePic,

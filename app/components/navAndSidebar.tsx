@@ -2,14 +2,17 @@
 
 import { useState, useEffect, ReactNode } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { PAGE_CONFIG, getMenuFor, getPageKey } from "./pageConfig";
 import { useLanguage } from "../contexts/LanguageContext";
 import { PiSuitcaseSimpleFill, PiRankingLight, PiCheckCircleFill } from "react-icons/pi";
-import { FaUserCheck, FaClipboardCheck, FaSlidersH } from "react-icons/fa";
+import { FaUserCheck, FaClipboardCheck, FaSlidersH, FaUserTie } from "react-icons/fa";
 import { FaX } from "react-icons/fa6";
 import { FaBars, FaCaretDown, FaSignOutAlt } from "react-icons/fa";
 
 interface pageInfoProps {
-  pageInfo: [title: string, titleDescription: string, heighLightLink: string];
+  // Optional override. By default title/description/active link come from pageConfig.ts
+  pageInfo?: [title: string, titleDescription: string, heighLightLink: string];
   user: [
     name: string,
     profilePic: string,
@@ -21,20 +24,15 @@ interface pageInfoProps {
   children?: ReactNode;
 }
 
-interface PageItem {
-  name: string;
-  path: string;
-  icon: ReactNode;
-}
-
-const pathVar: PageItem[] = [
-  { name: "Job Requisitions", path: "job-requisitions", icon: <PiSuitcaseSimpleFill className="w-4 h-4" /> },
-  { name: "Post Approval", path: "post-approval", icon: <PiCheckCircleFill className="w-4 h-4" /> },
-  { name: "Candidate Ranking", path: "candidate-ranking", icon: <PiRankingLight className="w-4 h-4" /> },
-  { name: "Shortlisted Candidates", path: "shortlisted-candidates", icon: <FaUserCheck className="w-3.5 h-3.5" /> },
-  { name: "Interview Evaluation", path: "interview-evaluation", icon: <FaClipboardCheck className="w-3.5 h-3.5" /> },
-  { name: "Settings", path: "setting", icon: <FaSlidersH className="w-3.5 h-3.5" /> },
-];
+const ICONS: Record<string, ReactNode> = {
+  "job-requisitions": <PiSuitcaseSimpleFill className="w-4 h-4" />,
+  "post-approval": <PiCheckCircleFill className="w-4 h-4" />,
+  "cv-bank-and-ranking": <PiRankingLight className="w-4 h-4" />,
+  "shortlisted-candidates": <FaUserCheck className="w-3.5 h-3.5" />,
+  "interview-evaluation": <FaClipboardCheck className="w-3.5 h-3.5" />,
+  "hired-candidates": <FaUserTie className="w-3.5 h-3.5" />,
+  setting: <FaSlidersH className="w-3.5 h-3.5" />,
+};
 
 function SidebarContent({ highlightLink, onLinkClick }: { highlightLink: string; onLinkClick?: () => void }) {
   const { t } = useLanguage();
@@ -57,12 +55,12 @@ function SidebarContent({ highlightLink, onLinkClick }: { highlightLink: string;
 
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">Menu</p>
-        {pathVar.map((item, index) => {
-          const active = highlightLink === item.path;
+        {getMenuFor(highlightLink).map((item) => {
+          const active = highlightLink === item.key;
           return (
             <Link
-              key={index}
-              href={item.path}
+              key={item.key}
+              href={`/pages/${item.key}`}
               onClick={onLinkClick}
               className={
                 active
@@ -70,7 +68,7 @@ function SidebarContent({ highlightLink, onLinkClick }: { highlightLink: string;
                   : "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:bg-white/5 hover:text-white hover:translate-x-0.5 transition"
               }
             >
-              <span className={active ? "text-indigo-200" : ""}>{item.icon}</span>
+              <span className={active ? "text-indigo-200" : ""}>{ICONS[item.key]}</span>
               <span className="truncate">{t(item.name)}</span>
             </Link>
           );
@@ -102,7 +100,14 @@ function LanguageSelect() {
 }
 
 export default function navAndSidebar({ pageInfo, user, sidebarHeight = "h-screen", children }: pageInfoProps) {
-  const [title, titleDescription, highlightLink] = pageInfo;
+  const pathname = usePathname();
+  const pageKey = getPageKey(pathname);
+  const config = PAGE_CONFIG[pageKey];
+  const [title, titleDescription, highlightLink] = pageInfo ?? [
+    config?.title ?? "",
+    config?.description ?? "",
+    pageKey,
+  ];
   const [name, profilePicLink, notificationNumber] = user;
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
