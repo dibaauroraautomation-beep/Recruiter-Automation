@@ -441,7 +441,7 @@ export default function JobPublish() {
             disabled={submitting}
             className="flex-1 px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-blue-600 rounded-xl hover:from-indigo-700 hover:to-blue-700 transition shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {submitting ? t("Posting…") : t("Create Job for Approval")}
+            {submitting ? t("Posting…") : t("Create Job Requisitions")}
           </button>
         </div>
       </form>
