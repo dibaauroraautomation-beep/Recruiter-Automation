@@ -168,6 +168,7 @@ const translations: Record<string, Record<string, string>> = {
     "Candidate Scoring and Ranking": "Candidate Scoring and Ranking",
     "Shortlisted Candidates": "Shortlisted Candidates",
     "Interview Evaluation and Final Selection": "Interview Evaluation and Final Selection",
+    "Interview & Selection": "Interview & Selection",
 
     /* ---- Settings ---- */
     "Account & Preferences": "Account & Preferences",
@@ -343,6 +344,7 @@ const translations: Record<string, Record<string, string>> = {
     "Candidate Scoring and Ranking": "Kandidatenbewertung und Rangfolge",
     "Shortlisted Candidates": "Vorausgewählte Kandidaten",
     "Interview Evaluation and Final Selection": "Gesprächsbewertung und endgültige Auswahl",
+    "Interview & Selection": "Gespräch & Auswahl",
 
     /* ---- Settings ---- */
     "Account & Preferences": "Konto & Einstellungen",

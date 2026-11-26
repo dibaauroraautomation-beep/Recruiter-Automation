@@ -21,7 +21,7 @@ const CONFIRMATION_MAIL_URL = "https://n8naurora.duckdns.org/webhook/sent-email"
 /* Types                                                               */
 /* ------------------------------------------------------------------ */
 
-type SelectionStatus = "selected" | "not_selected" | "hired";
+type SelectionStatus = "pending" | "selected" | "not_selected" | "hired";
 type SortKey = "totalScore" | "cvScore" | "interviewScore" | "name";
 type SortOrder = "desc" | "asc";
 
@@ -41,6 +41,9 @@ interface Candidate {
   noticePeriod: string;
   skills: string;
   experience: string;
+  location: string;
+  attachment: string;
+  dataStatus?: SelectionStatus;
   // aiAssessment: string;
   mustHaveRequirements: string;
 }
@@ -94,32 +97,37 @@ const KEY_ALIASES: Record<string, string[]> = {
   noticeperiod: ["noticeperiod", "notice"],
   skills: ["skills", "expertise"],
   experience: ["experience", "yearsofexperience", "exp"],
+  location: ["address", "location", "city"],
+  // The n8n table spells this column "Attchments".
+  finalstatus: ["finalstatus", "status", "selectionstatus", "candidatestatus"],
+  attachments: ["attchments", "attachments", "attachment"],
   // aiassesment: ["aiassesment", "aiassessment", "AIassesment"],
   musthaverequirements: ["musthaverequirements", "musthaveskill", "musthaverequirement", "mandatoryrequirements", "requirements"],
 };
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 
+function parseStatus(raw?: string): SelectionStatus | undefined {
+  const v = norm(raw ?? "");
+  if (v === "pending") return "pending";
+  if (v === "selected") return "selected";
+  if (v === "notselected" || v === "rejected" || v === "declined") return "not_selected";
+  if (v === "hired" || v === "tobehired") return "hired";
+  return undefined;
+}
+
 /* ------------------------------------------------------------------ */
 /* Columns Configuration                                               */
 /* ------------------------------------------------------------------ */
+// Gap and risk, salary, notice period, skills and experience are no longer
+// columns: their data is part of the "Overview" cell (see buildOverview).
 const COLUMNS: { key: string; label: string; width: string }[] = [
-  { key: "formtitle", label: "Job Title", width: "6%" },
-  { key: "fullname", label: "Full Name", width: "4%" },
-  { key: "email", label: "Email", width: "7%" },
-  { key: "phoneno", label: "Phone No", width: "5%" },
-  { key: "cvlink", label: "CV Link", width: "3%" },
-  { key: "atsscore", label: "Candidate Match", width: "5%" },
-  { key: "musthaverequirements", label: "Must Have Requirements", width: "5%" },
-  { key: "aiconfidencelevel", label: "Assesment Confidence", width: "5%" },
-  { key: "strengths", label: "Strengths", width: "8%" },
-  { key: "gaprisk", label: "Potential Gap and Risk", width: "8%" },
-  { key: "summarycomment", label: "Summary", width: "7%" },
-  { key: "salary", label: "Expected Salary", width: "5%" },
-  { key: "noticeperiod", label: "Notice Period", width: "4%" },
-  { key: "skills", label: "Skills", width: "7%" },
-  { key: "experience", label: "Experience", width: "6%" },
-  // { key: "aiassesment", label: "AI Assessment", width: "8%" },
+  { key: "formtitle", label: "Job Title", width: "11%" },
+  { key: "fullname", label: "Full Name", width: "11%" },
+  { key: "attachments", label: "Attachments", width: "9%" },
+  { key: "location", label: "Location", width: "12%" },
+  { key: "totalscore", label: "Total Score", width: "9%" },
+  { key: "summarycomment", label: "Overview", width: "48%" },
 ];
 
 function resolveKey(rawHeaders: string[], key: string): string | null {
@@ -237,6 +245,88 @@ function ChevronIcon() {
   );
 }
 
+// "Overview" cell: one structured summary that combines every cell of the row.
+type OverviewSection = { label: string; value: string };
+function buildOverview(
+  c: Candidate,
+  interview: number | null,
+  total: number | null,
+  verdict: string,
+  statusLabel: string | undefined,
+  feedback?: string
+): { headline: string; sections: OverviewSection[] } {
+  const has = (v?: string | null) => !!v && v !== NOT_AVAILABLE;
+  const sections: OverviewSection[] = [];
+  const add = (label: string, value?: string | null) => {
+    if (has(value)) sections.push({ label, value: String(value).trim() });
+  };
+
+  const scores: string[] = [`CV match ${c.cvScore}%`];
+  if (interview !== null) scores.push(`Interview ${interview}/100`);
+  if (total !== null) scores.push(`Total ${Math.round(total)}`);
+  if (has(c.mustHaveRequirements)) scores.push(`Must-have ${c.mustHaveRequirements}`);
+  if (has(c.aiConfidenceLevel)) scores.push(`Confidence ${c.aiConfidenceLevel}`);
+
+  const headline = [statusLabel, verdict ? `AI: ${verdict}` : "", ...scores]
+    .filter(Boolean)
+    .join(" · ");
+
+  add("Strengths", c.strengths);
+  add("Gap & risk", c.gapRisk);
+  add("Summary", c.summary);
+  add("Interview feedback", feedback);
+  add("Experience", c.experience);
+  add("Skills", c.skills);
+  add("Expected salary", c.salary);
+  add("Notice period", c.noticePeriod);
+  add("Contact", [c.email, c.phone].filter((v) => has(v)).join(" · "));
+
+  return { headline, sections };
+}
+
+function OverviewCell({
+  overview,
+  isExpanded,
+  onToggle,
+}: {
+  overview: { headline: string; sections: OverviewSection[] };
+  isExpanded: boolean;
+  onToggle: () => void;
+}) {
+  const { headline, sections } = overview;
+  const preview = sections.find((x) => x.label === "Summary") ?? sections[0];
+  return (
+    <div className="flex items-start gap-2 min-w-0">
+      <div className="min-w-0 flex-1 space-y-1.5">
+        <p className="text-xs font-semibold text-slate-800">{headline}</p>
+        {isExpanded ? (
+          <dl className="space-y-1.5">
+            {sections.map((sec) => (
+              <div key={sec.label}>
+                <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{sec.label}</dt>
+                <dd className="text-xs text-slate-600 break-words">{sec.value}</dd>
+              </div>
+            ))}
+          </dl>
+        ) : (
+          preview && <p className="text-xs text-slate-500 line-clamp-2 break-words">{preview.value}</p>
+        )}
+      </div>
+      {sections.length > 0 && (
+        <button
+          type="button"
+          onClick={onToggle}
+          className="mt-0.5 shrink-0 text-slate-400 hover:text-slate-700"
+          aria-label={isExpanded ? "Collapse" : "Expand"}
+          aria-expanded={isExpanded}
+        >
+          {isExpanded ? <FaChevronUp className="w-3 h-3" /> : <FaChevronDown className="w-3 h-3" />}
+        </button>
+      )}
+    </div>
+  );
+}
+
 /* Helper function to truncate text to first 5 words */
 function truncateToFiveWords(text: string): { truncated: string; isTruncated: boolean } {
   if (!text) return { truncated: "", isTruncated: false };
@@ -282,6 +372,145 @@ function ValueOrNotAvailable({ text }: { text: string }) {
     return <span className="text-xs italic text-slate-400">{NOT_AVAILABLE}</span>;
   }
   return <>{text}</>;
+}
+
+// Metallic gradient per file type (light edge -> deep body -> light edge).
+function attachmentTone(ext: string): string {
+  switch (ext.toLowerCase().replace(/^\./, "")) {
+    case "doc":
+    case "docx":
+      return "from-sky-300 via-blue-600 to-blue-800";
+    case "ppt":
+    case "pptx":
+      return "from-amber-300 via-orange-600 to-orange-800";
+    case "pdf":
+      return "from-rose-300 via-red-600 to-red-800";
+    case "txt":
+      return "from-slate-300 via-slate-500 to-slate-700";
+    case "mp4":
+    case "mov":
+      return "from-fuchsia-300 via-purple-600 to-purple-800";
+    case "xls":
+    case "xlsx":
+    case "csv":
+      return "from-emerald-300 via-green-600 to-green-800";
+    default:
+      return "from-teal-300 via-teal-600 to-teal-800";
+  }
+}
+
+// Clickable attachment chip: opens a small fly-out menu that shows a loading
+// state first, then the file details.
+function AttachmentChip({
+  ext,
+  tone,
+  candidateName,
+  cvLink,
+}: {
+  ext: string;
+  tone: string;
+  candidateName: string;
+  cvLink: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const btnRef = useRef<HTMLButtonElement | null>(null);
+
+  const close = useCallback(() => setOpen(false), []);
+
+  useEffect(() => {
+    if (!open) return;
+    setLoading(true);
+    const timer = setTimeout(() => setLoading(false), 900);
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (btnRef.current?.contains(t)) return;
+      if ((t as HTMLElement).closest?.("[data-attachment-menu]")) return;
+      close();
+    };
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("mousedown", onDown);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("mousedown", onDown);
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [open, close]);
+
+  const toggle = () => {
+    if (!open && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      const width = 224;
+      setPos({
+        top: r.bottom + 6,
+        left: Math.max(8, Math.min(r.left, window.innerWidth - width - 8)),
+      });
+    }
+    setOpen((v) => !v);
+  };
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={toggle}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className={`cursor-pointer rounded-md bg-gradient-to-br px-2 py-0.5 text-[11px] font-semibold uppercase text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.45),0_1px_2px_rgba(15,23,42,0.35)] ring-1 ring-inset ring-white/20 transition hover:brightness-110 ${tone}`}
+      >
+        {ext}
+      </button>
+      {open && (
+        <div
+          data-attachment-menu
+          role="menu"
+          style={{ position: "fixed", top: pos.top, left: pos.left, width: 224 }}
+          className="z-50 rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 shadow-xl"
+        >
+          {loading ? (
+            <div className="flex items-center gap-2 py-2 text-slate-500" role="status">
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-teal-600" />
+              Loading {ext.toUpperCase()} file…
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <p className="font-semibold text-slate-800">{ext.toUpperCase()} attachment</p>
+              <dl className="space-y-1">
+                <div className="flex justify-between gap-2">
+                  <dt className="text-slate-400">Candidate</dt>
+                  <dd className="truncate font-medium">{candidateName}</dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-slate-400">File type</dt>
+                  <dd className="font-medium uppercase">{ext}</dd>
+                </div>
+              </dl>
+              {cvLink ? (
+                <a
+                  href={cvLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  role="menuitem"
+                  className="block rounded-md bg-slate-800 px-2 py-1.5 text-center font-medium text-white hover:bg-slate-700"
+                >
+                  Open CV
+                </a>
+              ) : (
+                <p className="italic text-slate-400">No file link available.</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -403,6 +632,7 @@ export default function InterviewEvaluationPage() {
     return map;
   }, [evals]);
 
+
   const feedbacks = useMemo(() => {
     const map: Record<string, string> = {};
     for (const row of Object.values(evals)) {
@@ -470,6 +700,9 @@ export default function InterviewEvaluationPage() {
     const noticePeriodKey = resolveKey(rawHeaders, "noticeperiod");
     const skillsKey = resolveKey(rawHeaders, "skills");
     const experienceKey = resolveKey(rawHeaders, "experience");
+    const locationKey = resolveKey(rawHeaders, "location");
+    const attachmentKey = resolveKey(rawHeaders, "attachments");
+    const finalStatusKey = resolveKey(rawHeaders, "finalstatus");
     // const aiAssessmentKey = resolveKey(rawHeaders, "aiassesment");
     const mustHaveKey = resolveKey(rawHeaders, "musthaverequirements");
     const rowCount = Array.isArray(datas[rawHeaders[0]]) ? datas[rawHeaders[0]].length : 0;
@@ -499,12 +732,26 @@ export default function InterviewEvaluationPage() {
         noticePeriod: noticePeriodKey ? cleanValue(datas[noticePeriodKey]?.[i]) : "",
         skills: skillsKey ? cleanValue(datas[skillsKey]?.[i]) : "",
         experience: experienceKey ? cleanValue(datas[experienceKey]?.[i]) : "",
+        location: locationKey ? cleanValue(datas[locationKey]?.[i]) : "",
+        attachment: attachmentKey ? cleanValue(datas[attachmentKey]?.[i]) : "",
+        dataStatus: finalStatusKey ? parseStatus(cleanValue(datas[finalStatusKey]?.[i])) : undefined,
         // aiAssessment: aiAssessmentKey ? String(datas[aiAssessmentKey][i] ?? "") : "",
         mustHaveRequirements: mustHaveKey ? cleanValue(datas[mustHaveKey]?.[i]) : "",
       });
     }
     return list;
   }, [datas]);
+
+  // Final Status per candidate: a choice made in this app (Supabase) wins,
+  // otherwise the status that came with the n8n data (same as Interview & Selection).
+  const allStatuses = useMemo(() => {
+    const map: Record<string, SelectionStatus> = {};
+    for (const c of candidates) {
+      const status = statuses[c.id] ?? c.dataStatus;
+      if (status) map[c.id] = status;
+    }
+    return map;
+  }, [candidates, statuses]);
 
   useEffect(() => {
     const measure = () => {
@@ -544,7 +791,13 @@ export default function InterviewEvaluationPage() {
   const rankedRows = useMemo(() => {
     const dir = sortOrder === "desc" ? 1 : -1;
 
-    const withTotals = candidates.map((candidate) => ({
+    // Only candidates marked Selected / To Be Hired on Interview & Selection.
+    const shortlisted = candidates.filter((c) => {
+      const st = allStatuses[c.id];
+      return st === "selected" || st === "hired";
+    });
+
+    const withTotals = shortlisted.map((candidate) => ({
       candidate,
       interview: interviewScores[candidate.id] ?? null,
       total: totalOf(candidate),
@@ -581,15 +834,15 @@ export default function InterviewEvaluationPage() {
         candidate.name.toLowerCase().includes(query) ||
         candidate.role.toLowerCase().includes(query)
     );
-  }, [candidates, interviewScores, minScore, search, sortKey, sortOrder, totalOf]);
+  }, [candidates, allStatuses, interviewScores, minScore, search, sortKey, sortOrder, totalOf]);
 
   const detailCandidate = candidates.find((c) => c.id === detailForId) ?? null;
   const detailInterview = detailCandidate ? interviewScores[detailCandidate.id] ?? null : null;
   const detailTotal = detailCandidate ? totalOf(detailCandidate) : null;
 
   const confirmedCount = useMemo(
-    () => Object.values(statuses).filter((s) => s === "selected" || s === "hired").length,
-    [statuses]
+    () => Object.values(allStatuses).filter((s) => s === "selected" || s === "hired").length,
+    [allStatuses]
   );
 
   /* ---------------- status dropdown auto-close after 10s ---------------- */
@@ -676,7 +929,7 @@ export default function InterviewEvaluationPage() {
       interviewScore: interviewScores[candidate.id] ?? null,
       interviewBreakdown: evals[candidate.id]?.breakdown ?? null,
       totalScore: totalOf(candidate),
-      status: statuses[candidate.id] ?? "recommended",
+      status: allStatuses[candidate.id] ?? "recommended",
       feedback: feedbacks[candidate.id] ?? "",
     };
 
@@ -729,6 +982,7 @@ export default function InterviewEvaluationPage() {
         <TableComponent
           title="Candidates"
           headerOnly
+          filterColumns={COLUMNS.map((c) => ({ label: c.label, aliases: KEY_ALIASES[c.key] ?? [c.key] }))}
           cols={[]}
           baseUrl={CANDIDATE_DATA_URL}
           userId="gh"
@@ -745,7 +999,7 @@ export default function InterviewEvaluationPage() {
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-base font-medium text-slate-800">
-              Final review of top candidates with scores &gt;=
+              Show candidates with a total score of at least
             </p>
             <div className="flex items-center gap-1">
               <input
@@ -757,22 +1011,11 @@ export default function InterviewEvaluationPage() {
                 className="w-20 rounded-lg border border-slate-300 px-2 py-1 text-base font-semibold text-slate-800 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
                 aria-label="Minimum total score"
               />
-              <span className="text-base font-medium text-slate-800">%</span>
+              <span className="text-base font-medium text-slate-800"></span>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-
-            <button
-              type="button"
-              onClick={() => setSortOrder(sortOrder === "desc" ? "asc" : "desc")}
-              className="rounded-lg border border-slate-300 p-2 text-slate-600 hover:bg-slate-50"
-              title={sortOrder === "desc" ? "Showing high to low" : "Showing low to high"}
-              aria-label="Toggle sort order"
-            >
-              <FilterIcon />
-            </button>
-
             <div className="relative">
               <button
                 type="button"
@@ -835,43 +1078,27 @@ export default function InterviewEvaluationPage() {
             onScroll={handleMainScroll}
             className="overflow-x-auto rounded-lg border border-slate-200 no-native-scrollbar"
           >
-            <table className="w-full text-left border-collapse table-fixed min-w-[3800px]">
+            <table className="w-full text-left border-collapse table-fixed min-w-[1100px]">
               <colgroup>
-                <col style={{ width: "3%" }} />
                 {COLUMNS.map((col) => (
                   <col key={col.key} style={{ width: col.width }} />
                 ))}
-                <col style={{ width: "4%" }} />
-                <col style={{ width: "5%" }} />
-                <col style={{ width: "4%" }} />
-                <col style={{ width: "7%" }} />
-                <col style={{ width: "5%" }} />
-                <col style={{ width: "7%" }} />
-                <col style={{ width: "7%" }} />
               </colgroup>
 
               <thead className="bg-slate-100 text-xs font-bold text-slate-600">
                 <tr>
-                  <th className="px-3 py-3">Rank</th>
                   {COLUMNS.map((col) => (
                     <th key={col.key} className="px-3 py-3">
                       {col.label}
                     </th>
                   ))}
-                  <th className="px-3 py-3">CV Score (%)</th>
-                  <th className="px-3 py-3">Interview Score (100)</th>
-                  <th className="px-3 py-3">Total Score</th>
-                  <th className="px-3 py-3">AI Recommendation</th>
-                  <th className="px-3 py-3">Final Status</th>
-                  <th className="px-3 py-3">Feedback</th>
-                  <th className="px-3 py-3">Confirmation Mail</th>
                 </tr>
               </thead>
 
               <tbody className="divide-y divide-slate-100 text-sm">
                 {rankedRows.length === 0 ? (
                   <tr>
-                    <td colSpan={COLUMNS.length + 7} className="px-3 py-10 text-center text-slate-500">
+                    <td colSpan={COLUMNS.length} className="px-3 py-10 text-center text-slate-500">
                       {datas === null || evalsLoading
                         ? "Loading candidates…"
                         : `No candidate reached ${minScore}. Lower the score to see more people.`}
@@ -879,7 +1106,7 @@ export default function InterviewEvaluationPage() {
                   </tr>
                 ) : (
                   rankedRows.map(({ candidate, interview, total, rank }) => {
-                    const chosen = statuses[candidate.id];
+                    const chosen = allStatuses[candidate.id];
                     const isRecommended = total !== null && total >= minScore;
                     const recommendation = getAiRecommendation(
                       candidate.cvScore,
@@ -900,12 +1127,6 @@ export default function InterviewEvaluationPage() {
 
                     return (
                       <tr key={candidate.id} className={rowTone}>
-                        <td className="px-3 py-3 align-top">
-                          <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-slate-800 text-xs font-semibold text-white">
-                            {rank}
-                          </span>
-                        </td>
-
                         {/* Render dynamic columns from COLUMNS */}
                         {COLUMNS.map((col) => {
                           const isExpanded = expandedRows.has(`${candidate.id}-${col.key}`);
@@ -937,9 +1158,41 @@ export default function InterviewEvaluationPage() {
                             case "email":
                               cellContent = candidate.email;
                               break;
+                            case "totalscore":
+                              cellContent = <TotalScoreCell value={total} />;
+                              break;
+                            case "location":
+                              cellContent = candidate.location || NOT_AVAILABLE;
+                              break;
                             case "phoneno":
                               cellContent = candidate.phone || NOT_AVAILABLE;
                               break;
+                            case "attachments": {
+                              // Shows exactly what the n8n table's Attchments column holds.
+                              const att = candidate.attachment;
+                              cellContent = /^https?:\/\//i.test(att) ? (
+                                <a href={att} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs">
+                                  View attachment
+                                </a>
+                              ) : att ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {att
+                                    .split(",")
+                                    .map((t) => t.trim())
+                                    .filter(Boolean)
+                                    .map((t, i) => (
+                                      <AttachmentChip
+                                        key={`${t}-${i}`}
+                                        ext={t}
+                                        tone={attachmentTone(t)}
+                                        candidateName={candidate.name}
+                                        cvLink={candidate.cvLink}
+                                      />
+                                    ))}
+                                </div>
+                              ) : (NOT_AVAILABLE);
+                              break;
+                            }
                             case "cvlink":
                               cellContent = candidate.cvLink ? (
                                 <a href={candidate.cvLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs">
@@ -960,7 +1213,20 @@ export default function InterviewEvaluationPage() {
                               cellContent = <ExpandableTextCell text={candidate.gapRisk || NOT_AVAILABLE} isExpanded={isExpanded} onToggle={toggleExpand} />;
                               break;
                             case "summarycomment":
-                              cellContent = <ExpandableTextCell text={candidate.summary || NOT_AVAILABLE} isExpanded={isExpanded} onToggle={toggleExpand} />;
+                              cellContent = (
+                                <OverviewCell
+                                  overview={buildOverview(
+                                    candidate,
+                                    interview,
+                                    total,
+                                    recommendation.verdict,
+                                    chosen ? STATUS_OPTIONS.find((o) => o.value === chosen)?.label : undefined,
+                                    feedbacks[candidate.id]
+                                  )}
+                                  isExpanded={isExpanded}
+                                  onToggle={toggleExpand}
+                                />
+                              );
                               break;
                             case "salary":
                               cellContent = candidate.salary || NOT_AVAILABLE;
@@ -987,134 +1253,6 @@ export default function InterviewEvaluationPage() {
                             </td>
                           );
                         })}
-
-                        <td className="px-3 py-3">
-                          <CvScoreBar value={candidate.cvScore} />
-                        </td>
-
-                        {/* ---- Interview score: pen only, then score + pen ---- */}
-                        <td className="px-3 py-3">
-                          <InterviewScoreCell
-                            value={interview}
-                            onEdit={() => openScoreModal(candidate)}
-                          />
-                        </td>
-
-                        <td className="px-3 py-3">
-                          <TotalScoreCell value={total} />
-                        </td>
-
-                        <td className="px-3 py-3 align-top">
-                          <RecommendationBadge {...recommendation} />
-                        </td>
-
-                        {/* ---- Final status dropdown ---- */}
-                        <td className="px-3 py-3">
-                          <div className="relative">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setStatusOpenFor((open) =>
-                                  open === candidate.id ? null : candidate.id
-                                )
-                              }
-                              className={[
-                                "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold",
-                                chosen === "selected"
-                                  ? "bg-sky-500 text-white"
-                                  : chosen === "not_selected"
-                                    ? "bg-rose-100 text-rose-600 ring-1 ring-rose-300"
-                                    : chosen === "hired"
-                                      ? "bg-violet-600 text-white"
-                                      : recommendation.verdict === "Do Not Hire"
-                                        ? "bg-rose-100 text-rose-600 ring-1 ring-rose-300"
-                                        : recommendation.verdict === "Hire"
-                                          ? "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-300"
-                                          : "bg-slate-100 text-slate-500 ring-1 ring-slate-300",
-                              ].join(" ")}
-                            >
-                              {chosen
-                                ? STATUS_OPTIONS.find((o) => o.value === chosen)?.label
-                                : recommendation.verdict === "Do Not Hire"
-                                  ? "Not Selected"
-                                  : recommendation.verdict === "Hire"
-                                    ? "Recommended"
-                                    : "Pending"}
-                              <ChevronIcon />
-                            </button>
-
-                            {statusOpenFor === candidate.id ? (
-                              <>
-                                <div
-                                  className="fixed inset-0 z-10"
-                                  onClick={() => setStatusOpenFor(null)}
-                                  aria-hidden="true"
-                                />
-                                <div className="absolute left-0 z-20 mt-2 w-40 rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
-                                  {STATUS_OPTIONS.map((option) => (
-                                    <button
-                                      key={option.value}
-                                      type="button"
-                                      onClick={() => changeStatus(candidate, option.value)}
-                                      className={[
-                                        "block w-full rounded-md px-3 py-2 text-left text-sm",
-                                        chosen === option.value
-                                          ? "bg-teal-50 font-medium text-teal-700"
-                                          : "text-slate-600 hover:bg-slate-50",
-                                      ].join(" ")}
-                                    >
-                                      {option.label}
-                                    </button>
-                                  ))}
-                                </div>
-                              </>
-                            ) : null}
-                          </div>
-                        </td>
-
-                        {/* ---- Feedback ---- */}
-                        <td className="px-3 py-3">
-                          {feedbacks[candidate.id] ? (
-                            <button
-                              type="button"
-                              onClick={() => openFeedback(candidate, "view")}
-                              className="rounded-md bg-sky-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-600"
-                            >
-                              View Feedback
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => openFeedback(candidate, "edit")}
-                              className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
-                            >
-                              <EditIcon />
-                              Add Feedback
-                            </button>
-                          )}
-                        </td>
-
-                        {/* ---- Send confirmation mail ---- */}
-                        <td className="px-3 py-3">
-                          <button
-                            type="button"
-                            onClick={() => sendConfirmationMail(candidate)}
-                            disabled={sendingMail === candidate.id || sentMails[candidate.id]}
-                            className={[
-                              "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold",
-                              sentMails[candidate.id]
-                                ? "bg-slate-200 text-slate-600 cursor-default"
-                                : "bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60",
-                            ].join(" ")}
-                          >
-                            <MailIcon />
-                            {sentMails[candidate.id]
-                              ? "Confirmation Sent"
-                              : sendingMail === candidate.id
-                                ? "Sending…"
-                                : "Send Confirmation Mail"}
-                          </button>
-                        </td>
                       </tr>
                     );
                   })

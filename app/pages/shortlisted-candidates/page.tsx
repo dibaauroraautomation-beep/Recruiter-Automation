@@ -32,10 +32,36 @@ type Candidate = {
   profile: string;
   address: string;
   phone: string;
+  cvLink: string;
+  aiConfidence: string;
+  strengths: string;
+  gapRisk: string;
+  summary: string;
+  salary: string;
+  noticePeriod: string;
   links: string[];
   education: EducationEntry[];
   experience: ExperienceEntry[];
 };
+
+// Long text cell: 3 lines, click to expand / collapse
+function ClampedText({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  if (!text) return <span className="text-xs text-slate-300">Not Available</span>;
+  return (
+    <button
+      type="button"
+      onClick={() => setOpen((o) => !o)}
+      title={open ? "Click to collapse" : "Click to expand"}
+      className={
+        "text-left text-xs text-slate-500 leading-relaxed " +
+        (open ? "" : "line-clamp-3")
+      }
+    >
+      {text}
+    </button>
+  );
+}
 
 const sendCandidateAction = (
   action: string,
@@ -405,7 +431,8 @@ export default function Dashboard() {
     };
 
     const nameCol = col("CandidateName");
-    const roleCol = col("formtitle");
+    // the job title column is called "jobtitle" now (it used to be "formtitle")
+    const roleCol = ["jobtitle", "formtitle", "title"].map(col).find((c) => c.length > 0) ?? [];
     const scoreCol = col("Score");
     const skillsCol = col("Skills");
     const mustHaveSkillCol = col("musthaveskill");
@@ -416,7 +443,18 @@ export default function Dashboard() {
     const educationCol = col("education");
     const experienceCol = col("experience");
     const linksCol = col("links");
-    const phoneCol = col("phone");
+    const colAny = (names: string[]) =>
+      names.map(col).find((c) => c.length > 0) ?? [];
+    const phoneCol = colAny(["phoneno", "phone"]);
+    const aiConfidenceCol = colAny(["aiconfidencelevel", "confidence", "aiconfidence"]);
+    const strengthsCol = colAny(["strengths", "strenghs"]);
+    const gapRiskCol = colAny(["gaprisk", "gap", "risk", "potentialgap"]);
+    const summaryCol = colAny(["summarycomment", "summary", "comment"]);
+    const salaryCol = colAny(["salary"]);
+    const noticePeriodCol = colAny(["noticeperiod"]);
+    // same column interview-and-selection shows as "CV Link"
+    const cvLinkCol =
+      ["cvlink", "cv", "resumelink"].map(col).find((c) => c.length > 0) ?? [];
 
     const rowCount = Math.max(
       nameCol.length,
@@ -432,6 +470,13 @@ export default function Dashboard() {
       experienceCol.length,
       linksCol.length,
       phoneCol.length,
+      cvLinkCol.length,
+      aiConfidenceCol.length,
+      strengthsCol.length,
+      gapRiskCol.length,
+      summaryCol.length,
+      salaryCol.length,
+      noticePeriodCol.length,
     );
 
     if (rowCount === 0 && keys.length > 0) {
@@ -467,6 +512,13 @@ export default function Dashboard() {
         profile: cleanValue(profileCol[i]),
         address: cleanValue(addressCol[i]),
         phone: cleanValue(phoneCol[i]),
+        cvLink: cleanValue(cvLinkCol[i]),
+        aiConfidence: cleanValue(aiConfidenceCol[i]),
+        strengths: cleanValue(strengthsCol[i]),
+        gapRisk: cleanValue(gapRiskCol[i]),
+        summary: cleanValue(summaryCol[i]),
+        salary: cleanValue(salaryCol[i]),
+        noticePeriod: cleanValue(noticePeriodCol[i]),
         links: parseLinks(linksCol[i]),
         education: parseEducation(educationCol[i]),
         experience: parseExperience(experienceCol[i]),
@@ -619,7 +671,7 @@ export default function Dashboard() {
           title={
             <div className="flex flex-wrap items-center gap-4">
               <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-                Candidates with scores {">"}
+                Candidates with scores 
 <NumberStepper
                   value={filterScore}
                   onChange={setFilterScore}
@@ -627,10 +679,10 @@ export default function Dashboard() {
                   max={100}
                   ariaLabel="Minimum score filter"
                 />
-                %
+                
               </span>
               <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-                Must-have skills {">"}
+                Must-have skills 
 <NumberStepper
                   value={filterMustHaveSkill}
                   onChange={setFilterMustHaveSkill}
@@ -643,6 +695,7 @@ export default function Dashboard() {
           cols={[
             { Rank: "RANK(Score,Score,0)" },
             { CandidateName: "" },
+            { jobtitle: "" },
             { formtitle: "" },
             { Score: `IF(Score>${filterScore},Score)` },
             { Skills: "" },
@@ -652,9 +705,37 @@ export default function Dashboard() {
             { address: "" },
             { experience: "" },
             { phoneno: "" },
+            { cvlink: "" },
+            { aiconfidencelevel: "" },
+            { strengths: "" },
+            { gaprisk: "" },
+            { summarycomment: "" },
+            { salary: "" },
+            { noticeperiod: "" },
             { links: "" },
             { education: "" },
             { musthaveskill: "" },
+          ]}
+          defaultFilters={[{ column: "Job title", value: "AI Engineer" }]}
+          // only the columns this page's table shows
+          filterColumns={[
+            { label: "Rank" },
+            { label: "Candidate Name", aliases: ["CandidateName"] },
+            { label: "Job title", aliases: ["jobtitle", "formtitle"] },
+            { label: "Email", aliases: ["email"] },
+            { label: "Phone No", aliases: ["phoneno", "phone"] },
+            { label: "CV Link", aliases: ["cvlink", "cv", "resumelink"] },
+            { label: "Score (%)", aliases: ["Score"] },
+            { label: "Skills" },
+            { label: "Must Have Skill", aliases: ["musthaveskill"] },
+            { label: "Assessment Confidence", aliases: ["aiconfidencelevel"] },
+            { label: "Strengths", aliases: ["strengths"] },
+            { label: "Potential Gap and Risk", aliases: ["gaprisk"] },
+            { label: "Summary", aliases: ["summarycomment"] },
+            { label: "Expected Salary", aliases: ["salary"] },
+            { label: "Notice Period", aliases: ["noticeperiod"] },
+            { label: "Experience", aliases: ["experience"] },
+            { label: "Interview Invitation", aliases: ["InterviewInvitation"] },
           ]}
           baseUrl="https://n8naurora.duckdns.org/webhook/dataFetch"
           // baseUrl="https://n8naurora.duckdns.org/webhook-test/dataFetch"
@@ -665,7 +746,7 @@ export default function Dashboard() {
         >
           <>
             {selectedIds.length > 0 && (
-              <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-2.5 mb-2 bg-slate-50 border border-slate-200 rounded-xl">
+              <div className="sticky left-0 z-10 flex flex-wrap items-center justify-between gap-3 px-5 py-2.5 mb-2 bg-slate-50 border border-slate-200 rounded-xl">
                 <span className="text-xs font-semibold text-slate-600">
                   {selectedIds.length} selected
                 </span>
@@ -677,37 +758,38 @@ export default function Dashboard() {
                   >
                     Send Invitation
                   </button>
-                  <button
-                    onClick={() => handleBulkAction("Decline")}
-                    disabled={pendingActions.size > 0}
-                    className="px-4 py-1.5 text-xs font-semibold text-white bg-red-600 rounded-md hover:bg-red-700 transition shadow-sm whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Decline
-                  </button>
                 </div>
               </div>
             )}
-            <table className="w-full text-left border-collapse min-w-[980px]">
+            <table className="w-full text-left border-collapse min-w-[2600px]">
             <thead>
               <tr className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 bg-slate-50/70">
-                <th className="py-3.5 px-5 rounded-tl-xl"></th>
+                <th className="py-3.5 px-3 rounded-tl-xl">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleAll}
+                    aria-label="Select all"
+                    className="w-4 h-4 accent-blue-600 cursor-pointer"
+                  />
+                </th>
+                <th className="py-3.5 px-5"></th>
                 <th className="py-3.5 px-5">Rank</th>
                 <th className="py-3.5 px-5">Candidate Name</th>
                 <th className="py-3.5 px-5">Job title</th>
+                <th className="py-3.5 px-5 min-w-[260px]">Email</th>
+                <th className="py-3.5 px-5">Phone No</th>
+                <th className="py-3.5 px-5">CV Link</th>
                 <th className="py-3.5 px-5">Score (%)</th>
                 <th className="py-3.5 px-5">Skills</th>
                 <th className="py-3.5 px-5">Must Have Skill</th>
-                <th className="py-3.5 px-5">
-                  <label className="inline-flex items-center gap-2 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={allSelected}
-                      onChange={toggleAll}
-                      className="w-4 h-4 accent-blue-600 cursor-pointer"
-                    />
-                    <span>Select All</span>
-                  </label>
-                </th>
+                <th className="py-3.5 px-5">Assessment Confidence</th>
+                <th className="py-3.5 px-5">Strengths</th>
+                <th className="py-3.5 px-5">Potential Gap and Risk</th>
+                <th className="py-3.5 px-5">Summary</th>
+                <th className="py-3.5 px-5">Expected Salary</th>
+                <th className="py-3.5 px-5">Notice Period</th>
+                <th className="py-3.5 px-5">Experience</th>
                 <th className="py-3.5 px-5 rounded-tr-xl">Interview Invitation</th>
               </tr>
             </thead>
@@ -715,7 +797,7 @@ export default function Dashboard() {
               {candidates.length === 0 && (
                 <tr>
                   <td
-                    colSpan={9}
+                    colSpan={20}
                     className="py-10 text-center text-xs text-slate-400"
                   >
                     Loading candidates…
@@ -727,6 +809,15 @@ export default function Dashboard() {
                 <tr
                   className="group transition-colors hover:bg-slate-50/60"
                 >
+                  <td className="py-4 px-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(candidate.id)}
+                      onChange={() => toggleOne(candidate.id)}
+                      aria-label={`Select ${candidate.name}`}
+                      className="w-4 h-4 accent-blue-600 cursor-pointer"
+                    />
+                  </td>
                   <td className="py-4 px-5 text-center">
                     <button
                       type="button"
@@ -765,6 +856,26 @@ export default function Dashboard() {
                       {candidate.formtitle}
                     </span>
                   </td>
+                  <td className="py-4 px-5 min-w-[260px] text-xs text-slate-500 whitespace-nowrap">
+                    {candidate.email || <span className="text-slate-300">Not Available</span>}
+                  </td>
+                  <td className="py-4 px-5 text-xs text-slate-500 whitespace-nowrap">
+                    {candidate.phone || <span className="text-slate-300">Not Available</span>}
+                  </td>
+                  <td className="py-4 px-5">
+                    {candidate.cvLink ? (
+                      <a
+                        href={candidate.cvLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline text-xs"
+                      >
+                        View CV
+                      </a>
+                    ) : (
+                      <span className="text-xs text-slate-300">Not Available</span>
+                    )}
+                  </td>
                   <td className="py-4 px-5">
                     {candidate.score === null ? (
                       <span className="text-xs text-slate-300">—</span>
@@ -790,40 +901,45 @@ export default function Dashboard() {
                       {candidate.mustHaveSkill || "Not Available Yet"}
                     </span>
                   </td>
+                  <td className="py-4 px-5 text-xs text-slate-500">
+                    {candidate.aiConfidence || <span className="text-slate-300">Not Available</span>}
+                  </td>
+                  <td className="py-4 px-5"><ClampedText text={candidate.strengths} /></td>
+                  <td className="py-4 px-5"><ClampedText text={candidate.gapRisk} /></td>
+                  <td className="py-4 px-5"><ClampedText text={candidate.summary} /></td>
+                  <td className="py-4 px-5 text-xs text-slate-500 whitespace-nowrap">
+                    {candidate.salary || <span className="text-slate-300">Not Available</span>}
+                  </td>
+                  <td className="py-4 px-5 text-xs text-slate-500 whitespace-nowrap">
+                    {candidate.noticePeriod || <span className="text-slate-300">Not Available</span>}
+                  </td>
                   <td className="py-4 px-5">
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.includes(candidate.id)}
-                      onChange={() => toggleOne(candidate.id)}
-                      className="w-4 h-4 accent-blue-600 cursor-pointer"
+                    <ClampedText
+                      text={candidate.experience
+                        .map((e) => [e.role, e.company].filter(Boolean).join(" at "))
+                        .filter(Boolean)
+                        .join("; ")}
                     />
                   </td>
                   <td className="py-4 px-5">
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => runAction("Send Invitation", candidate)}
-                        disabled={pendingActions.has(candidate.id)}
+                        // row buttons are off while any checkbox is ticked: use the bulk bar instead
+                        disabled={pendingActions.has(candidate.id) || selectedIds.length > 0}
+                        title={selectedIds.length > 0 ? "Use the Send Invitation button above for selected candidates" : undefined}
                         className="px-4 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700 transition shadow-sm whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {pendingActions.get(candidate.id) === "Send Invitation"
                           ? "Sending..."
                           : "Send Invitation"}
                       </button>
-                      <button
-                        onClick={() => runAction("Decline", candidate)}
-                        disabled={pendingActions.has(candidate.id)}
-                        className="px-4 py-1.5 text-xs font-semibold text-white bg-red-600 rounded-md hover:bg-red-700 transition shadow-sm whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {pendingActions.get(candidate.id) === "Decline"
-                          ? "Sending..."
-                          : "Decline"}
-                      </button>
                     </div>
                   </td>
                 </tr>
                 {expandedIds.includes(candidate.id) && (
                     <tr>
-                      <td colSpan={9} className="px-5 pb-5 pt-0">
+                      <td colSpan={20} className="px-5 pb-5 pt-0">
                         <div
                           style={{ fontFamily: "'Manrope', system-ui, sans-serif" }}
                           className="sticky left-0 w-[calc(100vw-2rem)] sm:w-[calc(100vw-3rem)] lg:w-[calc(100vw-19rem)] max-w-[980px] rounded-xl overflow-hidden shadow-md ring-1 ring-slate-200 flex flex-col sm:flex-row bg-white"

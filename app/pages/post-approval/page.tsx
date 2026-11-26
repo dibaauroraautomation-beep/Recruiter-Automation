@@ -609,6 +609,11 @@ export default function PostApproval() {
     >
       <TableComponent
         title="Post Approval"
+        // only the columns this page's table reads from the data
+        filterColumns={[
+          { label: "Job Title", aliases: KEY_ALIASES.jobtitle },
+          { label: "Post Description", aliases: KEY_ALIASES.postcontent },
+        ]}
         // rows={[]} returns every column keyed by its real name —
         // no letter formulas, so column order in the response can't break it
         cols={[]}

@@ -17,11 +17,17 @@ export const dynamic = "force-dynamic";
 const CANDIDATE_DATA_URL = "https://n8naurora.duckdns.org/webhook/candidate-data";
 const CONFIRMATION_MAIL_URL = "https://n8naurora.duckdns.org/webhook/sent-email";
 
+// Called (GET) every time a Final Status option is picked: ?status=<value>&email=<email>
+// The test URL only works while the n8n node is listening ("Listen for test event").
+// Switch to the production URL below once the workflow is active.
+// const STATUS_WEBHOOK_URL = "https://n8naurora.duckdns.org/webhook-test/candidateDataStoring";
+const STATUS_WEBHOOK_URL = "https://n8naurora.duckdns.org/webhook/candidateDataStoring";
+
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
 /* ------------------------------------------------------------------ */
 
-type SelectionStatus = "selected" | "not_selected" | "hired";
+type SelectionStatus = "pending" | "selected" | "not_selected" | "hired";
 type SortKey = "totalScore" | "cvScore" | "interviewScore" | "name";
 type SortOrder = "desc" | "asc";
 
@@ -43,6 +49,8 @@ interface Candidate {
   experience: string;
   // aiAssessment: string;
   mustHaveRequirements: string;
+  // Final Status as it arrives in the n8n data (if the table has that column)
+  dataStatus?: SelectionStatus;
 }
 
 interface Breakdown {
@@ -70,9 +78,10 @@ const EMPTY_BREAKDOWN: Breakdown = {
 };
 
 const STATUS_OPTIONS: { value: SelectionStatus; label: string }[] = [
+  { value: "pending", label: "Pending" },
   { value: "selected", label: "Selected" },
   { value: "not_selected", label: "Not Selected" },
-  { value: "hired", label: "Hired" },
+  { value: "hired", label: "To Be Hired" },
 ];
 const NOT_AVAILABLE = "Not Available";
 /* ------------------------------------------------------------------ */
@@ -83,6 +92,7 @@ const KEY_ALIASES: Record<string, string[]> = {
   fullname: ["fullname", "name", "candidatename"],
   formtitle: ["formtitle", "jobtitle", "title"],
   email: ["email", "emailaddress"],
+  finalstatus: ["finalstatus", "status", "selectionstatus", "candidatestatus"],
   atsscore: ["atsscore", "score", "ats", "candidatescore", "cvscore"],
   phoneno: ["phoneno", "phone", "phonenumber"],
   cvlink: ["cvlink", "cv", "resumelink"],
@@ -100,26 +110,26 @@ const KEY_ALIASES: Record<string, string[]> = {
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 
+// Turns the text in the n8n "Final Status" column into one of the dropdown values.
+// Accepts the stored value ("not_selected", "hired") and the label ("Not Selected", "To Be Hired").
+function parseStatus(raw?: string): SelectionStatus | undefined {
+  const v = norm(raw ?? "");
+  if (v === "pending") return "pending";
+  if (v === "selected") return "selected";
+  if (v === "notselected" || v === "rejected" || v === "declined") return "not_selected";
+  if (v === "hired" || v === "tobehired") return "hired";
+  return undefined;
+}
+
 /* ------------------------------------------------------------------ */
 /* Columns Configuration                                               */
 /* ------------------------------------------------------------------ */
+// Data columns kept on this page. The rest (email, phone, CV link, strengths, ...)
+// now live on the Shortlisted Candidates page.
 const COLUMNS: { key: string; label: string; width: string }[] = [
-  { key: "formtitle", label: "Job Title", width: "6%" },
-  { key: "fullname", label: "Full Name", width: "4%" },
-  { key: "email", label: "Email", width: "7%" },
-  { key: "phoneno", label: "Phone No", width: "5%" },
-  { key: "cvlink", label: "CV Link", width: "3%" },
-  { key: "atsscore", label: "Candidate Match", width: "5%" },
-  { key: "musthaverequirements", label: "Must Have Requirements", width: "5%" },
-  { key: "aiconfidencelevel", label: "Assesment Confidence", width: "5%" },
-  { key: "strengths", label: "Strengths", width: "8%" },
-  { key: "gaprisk", label: "Potential Gap and Risk", width: "8%" },
-  { key: "summarycomment", label: "Summary", width: "7%" },
-  { key: "salary", label: "Expected Salary", width: "5%" },
-  { key: "noticeperiod", label: "Notice Period", width: "4%" },
-  { key: "skills", label: "Skills", width: "7%" },
-  { key: "experience", label: "Experience", width: "6%" },
-  // { key: "aiassesment", label: "AI Assessment", width: "8%" },
+  { key: "formtitle", label: "Job Title", width: "12%" },
+  { key: "fullname", label: "Full Name", width: "11%" },
+  { key: "atsscore", label: "Candidate Match", width: "8%" },
 ];
 
 function resolveKey(rawHeaders: string[], key: string): string | null {
@@ -472,6 +482,7 @@ export default function InterviewEvaluationPage() {
     const experienceKey = resolveKey(rawHeaders, "experience");
     // const aiAssessmentKey = resolveKey(rawHeaders, "aiassesment");
     const mustHaveKey = resolveKey(rawHeaders, "musthaverequirements");
+    const finalStatusKey = resolveKey(rawHeaders, "finalstatus");
     const rowCount = Array.isArray(datas[rawHeaders[0]]) ? datas[rawHeaders[0]].length : 0;
 
     const list: Candidate[] = [];
@@ -501,10 +512,22 @@ export default function InterviewEvaluationPage() {
         experience: experienceKey ? cleanValue(datas[experienceKey]?.[i]) : "",
         // aiAssessment: aiAssessmentKey ? String(datas[aiAssessmentKey][i] ?? "") : "",
         mustHaveRequirements: mustHaveKey ? cleanValue(datas[mustHaveKey]?.[i]) : "",
+        dataStatus: finalStatusKey ? parseStatus(cleanValue(datas[finalStatusKey]?.[i])) : undefined,
       });
     }
     return list;
   }, [datas]);
+
+  // Final Status per candidate: a choice made in this app (Supabase) wins,
+  // otherwise the status that came with the n8n data.
+  const allStatuses = useMemo(() => {
+    const map: Record<string, SelectionStatus> = {};
+    for (const c of candidates) {
+      const status = statuses[c.id] ?? c.dataStatus;
+      if (status) map[c.id] = status;
+    }
+    return map;
+  }, [candidates, statuses]);
 
   useEffect(() => {
     const measure = () => {
@@ -550,10 +573,10 @@ export default function InterviewEvaluationPage() {
       total: totalOf(candidate),
     }));
 
-    // Unscored candidates stay visible, otherwise nobody could ever be scored.
-    // Delete `t.total === null ||` for a strict filter.
+    // Minimum score: a row is shown when its CV score is greater than or equal
+    // to the number in the box (interview score and total are not used here).
     const ranked = withTotals
-      .filter((t) => t.total === null || t.total >= minScore)
+      .filter((t) => t.candidate.cvScore >= minScore)
       .sort((a, b) => {
         if (sortKey === "name") {
           return (
@@ -588,8 +611,8 @@ export default function InterviewEvaluationPage() {
   const detailTotal = detailCandidate ? totalOf(detailCandidate) : null;
 
   const confirmedCount = useMemo(
-    () => Object.values(statuses).filter((s) => s === "selected" || s === "hired").length,
-    [statuses]
+    () => Object.values(allStatuses).filter((s) => s === "selected" || s === "hired").length,
+    [allStatuses]
   );
 
   /* ---------------- status dropdown auto-close after 10s ---------------- */
@@ -661,6 +684,15 @@ export default function InterviewEvaluationPage() {
       mail_sent: false,
     });
     if (!ok) setToast("Status shown locally but not saved. Check the Supabase connection.");
+
+    // send the chosen value and the candidate's email to n8n
+    try {
+      const params = new URLSearchParams({ status, email: candidate.email ?? "" });
+      const res = await fetch(`${STATUS_WEBHOOK_URL}?${params.toString()}`, { method: "GET" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    } catch {
+      setToast(`Status saved, but could not send it to the webhook for ${candidate.name}.`);
+    }
   }
 
   /* ---------------- mail ---------------- */
@@ -676,7 +708,7 @@ export default function InterviewEvaluationPage() {
       interviewScore: interviewScores[candidate.id] ?? null,
       interviewBreakdown: evals[candidate.id]?.breakdown ?? null,
       totalScore: totalOf(candidate),
-      status: statuses[candidate.id] ?? "recommended",
+      status: allStatuses[candidate.id] ?? "recommended",
       feedback: feedbacks[candidate.id] ?? "",
     };
 
@@ -716,7 +748,7 @@ export default function InterviewEvaluationPage() {
 
   function finalizeSelection() {
     if (confirmedCount === 0) {
-      setToast("Set at least one candidate to Selected or Hired before sending offers.");
+      setToast("Set at least one candidate to Selected or To Be Hired before sending offers.");
       return;
     }
     setToast(`Offers sent to ${confirmedCount} candidate${confirmedCount > 1 ? "s" : ""}.`);
@@ -729,6 +761,12 @@ export default function InterviewEvaluationPage() {
         <TableComponent
           title="Candidates"
           headerOnly
+          defaultFilters={[
+            {
+              column: "Job Title",
+              value: ["Ai Automation Engineer", "AI Agent Specialist", "Senior Officer", "AI Engineer"],
+            },
+          ]}
           cols={[]}
           baseUrl={CANDIDATE_DATA_URL}
           userId="gh"
@@ -757,21 +795,12 @@ export default function InterviewEvaluationPage() {
                 className="w-20 rounded-lg border border-slate-300 px-2 py-1 text-base font-semibold text-slate-800 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
                 aria-label="Minimum total score"
               />
-              <span className="text-base font-medium text-slate-800">%</span>
+              <span className="text-base font-medium text-slate-800"></span>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
 
-            <button
-              type="button"
-              onClick={() => setSortOrder(sortOrder === "desc" ? "asc" : "desc")}
-              className="rounded-lg border border-slate-300 p-2 text-slate-600 hover:bg-slate-50"
-              title={sortOrder === "desc" ? "Showing high to low" : "Showing low to high"}
-              aria-label="Toggle sort order"
-            >
-              <FilterIcon />
-            </button>
 
             <div className="relative">
               <button
@@ -833,42 +862,42 @@ export default function InterviewEvaluationPage() {
           <div
             ref={mainScrollRef}
             onScroll={handleMainScroll}
-            className="overflow-x-auto rounded-lg border border-slate-200 no-native-scrollbar"
+            className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm no-native-scrollbar"
           >
-            <table className="w-full text-left border-collapse table-fixed min-w-[3800px]">
+            <table className="w-full text-left border-collapse table-fixed min-w-[1400px]">
               <colgroup>
-                <col style={{ width: "3%" }} />
+                <col style={{ width: "4%" }} />
                 {COLUMNS.map((col) => (
                   <col key={col.key} style={{ width: col.width }} />
                 ))}
-                <col style={{ width: "4%" }} />
-                <col style={{ width: "5%" }} />
-                <col style={{ width: "4%" }} />
                 <col style={{ width: "7%" }} />
-                <col style={{ width: "5%" }} />
+                <col style={{ width: "8%" }} />
                 <col style={{ width: "7%" }} />
-                <col style={{ width: "7%" }} />
+                <col style={{ width: "10%" }} />
+                <col style={{ width: "10%" }} />
+                <col style={{ width: "11%" }} />
+                <col style={{ width: "12%" }} />
               </colgroup>
 
-              <thead className="bg-slate-100 text-xs font-bold text-slate-600">
+              <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wider text-slate-500 border-b border-slate-200">
                 <tr>
-                  <th className="px-3 py-3">Rank</th>
+                  <th className="px-3 py-3.5 align-middle">Rank</th>
                   {COLUMNS.map((col) => (
-                    <th key={col.key} className="px-3 py-3">
+                    <th key={col.key} className="px-3 py-3.5 align-middle">
                       {col.label}
                     </th>
                   ))}
-                  <th className="px-3 py-3">CV Score (%)</th>
-                  <th className="px-3 py-3">Interview Score (100)</th>
-                  <th className="px-3 py-3">Total Score</th>
-                  <th className="px-3 py-3">AI Recommendation</th>
-                  <th className="px-3 py-3">Final Status</th>
-                  <th className="px-3 py-3">Feedback</th>
-                  <th className="px-3 py-3">Confirmation Mail</th>
+                  <th className="px-3 py-3.5 align-middle">CV Score (%)</th>
+                  <th className="px-3 py-3.5 align-middle">Interview Score (100)</th>
+                  <th className="px-3 py-3.5 align-middle">Total Score</th>
+                  <th className="px-3 py-3.5 align-middle">AI Recommendation</th>
+                  <th className="px-3 py-3.5 align-middle">Final Status</th>
+                  <th className="px-3 py-3.5 align-middle">Feedback</th>
+                  <th className="px-3 py-3.5 align-middle">Confirmation Mail</th>
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-slate-100 text-sm">
+              <tbody className="divide-y divide-slate-100 text-sm [&>tr]:transition-colors">
                 {rankedRows.length === 0 ? (
                   <tr>
                     <td colSpan={COLUMNS.length + 7} className="px-3 py-10 text-center text-slate-500">
@@ -879,7 +908,7 @@ export default function InterviewEvaluationPage() {
                   </tr>
                 ) : (
                   rankedRows.map(({ candidate, interview, total, rank }) => {
-                    const chosen = statuses[candidate.id];
+                    const chosen = allStatuses[candidate.id];
                     const isRecommended = total !== null && total >= minScore;
                     const recommendation = getAiRecommendation(
                       candidate.cvScore,
@@ -896,11 +925,11 @@ export default function InterviewEvaluationPage() {
                             ? "bg-sky-50"
                             : isRecommended
                               ? "bg-emerald-50/50"
-                              : "bg-white";
+                              : "bg-white hover:bg-slate-50/70";
 
                     return (
                       <tr key={candidate.id} className={rowTone}>
-                        <td className="px-3 py-3 align-top">
+                        <td className="px-3 py-4 align-middle">
                           <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-slate-800 text-xs font-semibold text-white">
                             {rank}
                           </span>
@@ -982,34 +1011,34 @@ export default function InterviewEvaluationPage() {
                               break;
                           }
                           return (
-                            <td key={col.key} className="px-3 py-3 text-slate-700 text-xs align-top">
+                            <td key={col.key} className="px-3 py-4 text-slate-700 text-xs font-medium align-middle">
                               {cellContent}
                             </td>
                           );
                         })}
 
-                        <td className="px-3 py-3">
+                        <td className="px-3 py-4 align-middle">
                           <CvScoreBar value={candidate.cvScore} />
                         </td>
 
                         {/* ---- Interview score: pen only, then score + pen ---- */}
-                        <td className="px-3 py-3">
+                        <td className="px-3 py-4 align-middle">
                           <InterviewScoreCell
                             value={interview}
                             onEdit={() => openScoreModal(candidate)}
                           />
                         </td>
 
-                        <td className="px-3 py-3">
+                        <td className="px-3 py-4 align-middle">
                           <TotalScoreCell value={total} />
                         </td>
 
-                        <td className="px-3 py-3 align-top">
+                        <td className="px-3 py-4 align-middle">
                           <RecommendationBadge {...recommendation} />
                         </td>
 
                         {/* ---- Final status dropdown ---- */}
-                        <td className="px-3 py-3">
+                        <td className="px-3 py-4 align-middle">
                           <div className="relative">
                             <button
                               type="button"
@@ -1020,7 +1049,9 @@ export default function InterviewEvaluationPage() {
                               }
                               className={[
                                 "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold",
-                                chosen === "selected"
+                                chosen === "pending"
+                                  ? "bg-slate-100 text-slate-500 ring-1 ring-slate-300"
+                                  : chosen === "selected"
                                   ? "bg-sky-500 text-white"
                                   : chosen === "not_selected"
                                     ? "bg-rose-100 text-rose-600 ring-1 ring-rose-300"
@@ -1073,12 +1104,12 @@ export default function InterviewEvaluationPage() {
                         </td>
 
                         {/* ---- Feedback ---- */}
-                        <td className="px-3 py-3">
+                        <td className="px-3 py-4 align-middle">
                           {feedbacks[candidate.id] ? (
                             <button
                               type="button"
                               onClick={() => openFeedback(candidate, "view")}
-                              className="rounded-md bg-sky-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-600"
+                              className="whitespace-nowrap rounded-md bg-sky-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-600"
                             >
                               View Feedback
                             </button>
@@ -1086,7 +1117,7 @@ export default function InterviewEvaluationPage() {
                             <button
                               type="button"
                               onClick={() => openFeedback(candidate, "edit")}
-                              className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                              className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
                             >
                               <EditIcon />
                               Add Feedback
@@ -1095,13 +1126,13 @@ export default function InterviewEvaluationPage() {
                         </td>
 
                         {/* ---- Send confirmation mail ---- */}
-                        <td className="px-3 py-3">
+                        <td className="px-3 py-4 align-middle">
                           <button
                             type="button"
                             onClick={() => sendConfirmationMail(candidate)}
                             disabled={sendingMail === candidate.id || sentMails[candidate.id]}
                             className={[
-                              "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold",
+                              "inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-semibold",
                               sentMails[candidate.id]
                                 ? "bg-slate-200 text-slate-600 cursor-default"
                                 : "bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60",

@@ -29,7 +29,7 @@ const ICONS: Record<string, ReactNode> = {
   "post-approval": <PiCheckCircleFill className="w-4 h-4" />,
   "cv-bank-and-ranking": <PiRankingLight className="w-4 h-4" />,
   "shortlisted-candidates": <FaUserCheck className="w-3.5 h-3.5" />,
-  "interview-evaluation": <FaClipboardCheck className="w-3.5 h-3.5" />,
+  "interview-and-selection": <FaClipboardCheck className="w-3.5 h-3.5" />,
   "hired-candidates": <FaUserTie className="w-3.5 h-3.5" />,
   setting: <FaSlidersH className="w-3.5 h-3.5" />,
 };

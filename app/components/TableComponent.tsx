@@ -568,18 +568,55 @@ async function TableComponentScapDatabackEndModify(
 // ---------------------------------------------------------------------------
 
 // How a chip filters its column. It is picked from the column's stored data:
-//   number -> every value is numeric          => "is greater than" [number input]
+//   number -> every value is numeric          => "is at least" (>=) [number input]
 //   select -> few repeating values (<= 8)      => "is any of"       [checkbox list]
 //   text   -> anything else                    => "contains"        [text input]
 type ColumnKind = "number" | "select" | "text";
 
 type FilterChip = {
   id: number;
-  column: string;
+  column: string; // real header in the loaded data
+  label: string; // name shown to the user
   kind: ColumnKind;
   value: string; // number / text input
   selected: string[]; // select checkboxes
 };
+
+// A column a page wants offered in the "+" list. `label` is the name shown;
+// `aliases` are the header names it may arrive under in the data (defaults to
+// the label itself). Columns that are not in the data are not offered.
+export type FilterColumn = { label: string; aliases?: string[] };
+
+// A chip that is added automatically the first time the data loads (the user can
+// still change or remove it). `column` may be the header, the label or an alias.
+// `value` is the text / minimum number, or the option(s) to tick for a select column
+// (give an array to tick several options).
+export type DefaultFilter = { column: string; value: string | string[] };
+
+const normName = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+function resolveFilterColumns(
+  data: ScapColumnData | null,
+  filterColumns?: FilterColumn[],
+): { header: string; label: string }[] {
+  const headers = Object.keys(data ?? {});
+  if (!filterColumns) return headers.map((h) => ({ header: h, label: h }));
+
+  const byNorm = new Map(headers.map((h) => [normName(h), h]));
+  const out: { header: string; label: string }[] = [];
+  const seen = new Set<string>();
+  for (const fc of filterColumns) {
+    for (const name of [...(fc.aliases ?? []), fc.label]) {
+      const header = byNorm.get(normName(name));
+      if (header && !seen.has(header)) {
+        seen.add(header);
+        out.push({ header, label: fc.label });
+        break;
+      }
+    }
+  }
+  return out;
+}
 
 const MISSING_VALUES = new Set(["", "null", "undefined", "not available", "n/a"]);
 const isMissing = (v: unknown): boolean =>
@@ -601,7 +638,7 @@ const uniqueValues = (values: string[] = []): string[] => [
 function chipMatches(chip: FilterChip, cell: unknown): boolean {
   if (chip.kind === "number") {
     if (chip.value.trim() === "") return true;
-    return !isMissing(cell) && Number(cell) > Number(chip.value);
+    return !isMissing(cell) && Number(cell) >= Number(chip.value);
   }
   if (chip.kind === "select") {
     if (chip.selected.length === 0) return true;
@@ -655,7 +692,7 @@ function filterColumnData(
 }
 
 const CHIP_LABEL: Record<ColumnKind, string> = {
-  number: "is greater than",
+  number: "is at least",
   select: "is any of",
   text: "contains",
 };
@@ -663,12 +700,14 @@ const CHIP_LABEL: Record<ColumnKind, string> = {
 // Search box + "+" button (lists the table's columns) + filter chips
 function FilterBar({
   data,
+  filterColumns,
   searchTerm,
   onSearchChange,
   filters,
   onFiltersChange,
 }: {
   data: ScapColumnData | null;
+  filterColumns?: FilterColumn[];
   searchTerm: string;
   onSearchChange: (v: string) => void;
   filters: FilterChip[];
@@ -702,16 +741,17 @@ function FilterBar({
     };
   }, []);
 
-  const columns = Object.keys(data ?? {}).filter((c) =>
-    c.toLowerCase().includes(menuQuery.trim().toLowerCase()),
+  const columns = resolveFilterColumns(data, filterColumns).filter((c) =>
+    c.label.toLowerCase().includes(menuQuery.trim().toLowerCase()),
   );
 
-  const addChip = (column: string) => {
+  const addChip = (column: string, label: string) => {
     onFiltersChange([
       ...filters,
       {
         id: nextId.current++,
         column,
+        label,
         kind: detectColumnKind(data?.[column]),
         value: "",
         selected: [],
@@ -787,9 +827,9 @@ function FilterBar({
               ) : (
                 columns.map((c) => (
                   <button
-                    key={c}
+                    key={c.header}
                     type="button"
-                    onClick={() => addChip(c)}
+                    onClick={() => addChip(c.header, c.label)}
                     className="flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-xs text-slate-700 hover:bg-slate-100"
                   >
                     <svg
@@ -805,7 +845,7 @@ function FilterBar({
                         d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8zM14 3v5h5"
                       />
                     </svg>
-                    <span className="truncate">{c}</span>
+                    <span className="truncate">{c.label}</span>
                   </button>
                 ))
               )}
@@ -823,7 +863,7 @@ function FilterBar({
               className="relative inline-flex items-center gap-2.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs text-slate-600"
             >
               <span>
-                <b className="font-medium text-slate-900">{chip.column}</b>{" "}
+                <b className="font-medium text-slate-900">{chip.label}</b>{" "}
                 {CHIP_LABEL[chip.kind]}
               </span>
 
@@ -886,7 +926,7 @@ function FilterBar({
 
               <button
                 type="button"
-                aria-label={`Remove ${chip.column} filter`}
+                aria-label={`Remove ${chip.label} filter`}
                 onClick={() => removeChip(chip.id)}
                 className="text-base leading-none text-slate-500 hover:text-slate-800"
               >
@@ -910,6 +950,8 @@ export default function TableComponent({
   debug = false,
   dataBaseId ,
   headerOnly = false,
+  filterColumns,
+  defaultFilters,
 }: {
   children?: ReactNode | ((data: ScapColumnData | null) => ReactNode);
   title: ReactNode;
@@ -922,6 +964,11 @@ export default function TableComponent({
   // true = show only the title + search box/filter chips (no table body or footer).
   // The data is still loaded and passed to onData, already filtered.
   headerOnly?: boolean;
+  // Columns offered by the "+" button. Leave out to offer every column in the data.
+  filterColumns?: FilterColumn[];
+  // Chips added once when the data first arrives, e.g.
+  // defaultFilters={[{ column: "formtitle", value: "AI Engineer" }]}
+  defaultFilters?: DefaultFilter[];
 }) {
   const { user } = useUser();
 
@@ -930,6 +977,68 @@ export default function TableComponent({
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState<FilterChip[]>([]);
+
+  // Apply defaultFilters once. It keeps trying on every data update until a
+  // default chip could really be added (so a partial first response or a
+  // column that arrives later does not lose the default for good).
+  const defaultsApplied = useRef(false);
+  useEffect(() => {
+    if (!datas || defaultsApplied.current) return;
+    if (!defaultFilters?.length) return;
+    const headers = Object.keys(datas);
+    if (headers.length === 0) return; // not real data yet, wait for the next update
+
+    const available = resolveFilterColumns(datas, filterColumns);
+    const byNorm = new Map(headers.map((h) => [normName(h), h]));
+    const chips: FilterChip[] = [];
+
+    defaultFilters.forEach((d, i) => {
+      const header =
+        byNorm.get(normName(d.column)) ??
+        available.find((c) => normName(c.label) === normName(d.column))?.header;
+      if (!header) {
+        console.warn(
+          `[TableComponent] default filter skipped: no column "${d.column}". Columns:`,
+          headers,
+        );
+        return;
+      }
+
+      const kind = detectColumnKind(datas[header]);
+      const label = available.find((c) => c.header === header)?.label ?? header;
+      const wanted = Array.isArray(d.value) ? d.value : [d.value];
+      let value = wanted[0] ?? "";
+      let selected: string[] = [];
+
+      if (kind === "select") {
+        // tick every wanted option, spelled exactly as it is in the table
+        const options = uniqueValues(datas[header]);
+        selected = wanted
+          .map(
+            (w) =>
+              options.find((v) => normName(v) === normName(w)) ??
+              options.find((v) => normName(v).includes(normName(w))),
+          )
+          .filter((v): v is string => !!v);
+        selected = [...new Set(selected)];
+        if (selected.length === 0) {
+          console.warn(
+            `[TableComponent] default filter skipped: none of ${JSON.stringify(wanted)} is a value of "${header}". Values:`,
+            options,
+          );
+          return;
+        }
+        value = "";
+      }
+      chips.push({ id: -(i + 1), column: header, label, kind, value, selected });
+    });
+
+    if (chips.length) {
+      defaultsApplied.current = true;
+      setFilters(chips);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [datas]);
 
   // Recomputed whenever the raw data or the search term changes; this is
   // the single source of truth handed to children and to onData below.
@@ -1114,6 +1223,7 @@ export default function TableComponent({
             </h2>
             <FilterBar
               data={datas}
+              filterColumns={filterColumns}
               searchTerm={searchTerm}
               onSearchChange={setSearchTerm}
               filters={filters}

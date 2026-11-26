@@ -24,7 +24,7 @@ export const HIRING_MENU = [
   "post-approval",
   "cv-bank-and-ranking",
   "shortlisted-candidates",
-  "interview-evaluation",
+  "interview-and-selection",
   "hired-candidates",
   ...SHARED,
 ];
@@ -58,8 +58,8 @@ export const PAGE_CONFIG: Record<string, PageConfig> = {
       "Narrowing down the entire applicant pool into a curated, high-potential segment ready for direct human interaction.",
     menu: HIRING_MENU,
   },
-  "interview-evaluation": {
-    title: "Interview Evaluation and Final Selection",
+  "interview-and-selection": {
+    title: "Interview & Selection",
     description:
       "Shortlisted candidates are reviewed here with their CV score, interview score and interviewer feedback before offers go out.",
     menu: HIRING_MENU,
@@ -85,7 +85,7 @@ export const MENU_ITEMS: { name: string; key: string }[] = [
   { name: "Post Approval", key: "post-approval" },
   { name: "CV Bank and Ranking", key: "cv-bank-and-ranking" },
   { name: "Shortlisted Candidates", key: "shortlisted-candidates" },
-  { name: "Interview Evaluation", key: "interview-evaluation" },
+  { name: "Interview & Selection", key: "interview-and-selection" },
   { name: "Hired Candidates", key: "hired-candidates" },
   { name: "Settings", key: "setting" },
 ];
